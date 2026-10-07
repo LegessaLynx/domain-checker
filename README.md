@@ -28,7 +28,14 @@ A lightweight, zero-dependency domain availability checker with an authoritative
 
 ## Quick Start
 
-Run the application using Python:
+1. Clone the repository and navigate into the directory:
+
+```bash
+git clone https://github.com/LegessaLynx/domain-checker.git
+cd domain-checker
+```
+
+2. Run the application:
 
 ```bash
 python app.py
