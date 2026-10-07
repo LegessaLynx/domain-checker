@@ -205,33 +205,6 @@ body {
   margin-bottom: 20px;
 }
 
-.drop-zone {
-  position: relative;
-}
-
-.drop-overlay {
-  display: none;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--fog);
-  border: 2px dashed var(--ember-orange);
-  color: var(--graphite);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 14px;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-  pointer-events: none;
-}
-
-.drop-zone.drag-active .drop-overlay {
-  display: flex;
-}
-
 .field-header {
   display: flex;
   justify-content: space-between;
@@ -808,4 +781,85 @@ textarea:focus, input[type="text"]:focus {
 
 .editorial-link:hover {
   opacity: 0.7;
+}
+
+/* ==========================================================================
+   IN-PAGE MODAL DIALOG (DOMAIN HACKS)
+   ========================================================================== */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-card {
+  background-color: var(--ash);
+  border: 1px solid var(--mist);
+  border-radius: var(--radius-card);
+  max-width: 480px;
+  width: 100%;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.modal-header {
+  margin-bottom: 10px;
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: var(--graphite);
+}
+
+.modal-message {
+  font-size: 13.5px;
+  color: var(--steel);
+  margin-bottom: 14px;
+  line-height: 1.45;
+}
+
+.modal-hacks-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  background-color: var(--canvas-white);
+  border: 1px solid var(--mist);
+  padding: 12px;
+  margin-bottom: 20px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.hack-item-pill {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12.5px;
+  background-color: var(--fog);
+  border: 1px solid var(--graphite);
+  color: var(--graphite);
+  padding: 4px 10px;
+  border-radius: var(--radius-tag);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  width: auto;
+  min-width: 90px;
+  padding: 10px 24px;
 }

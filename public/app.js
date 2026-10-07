@@ -5,7 +5,8 @@
 
   // --- STATE MANAGEMENT ---
   const state = {
-    keywords: [],
+    baseKeywords: [],
+    specificDomains: [],
     // Default TLDs: .com, .io, .co, .xyz, .dev, .app, .tech
     selectedTlds: new Set(['.com', '.io', '.co', '.xyz', '.dev', '.app', '.tech']),
     customTlds: new Set(),
@@ -30,7 +31,8 @@
   const HACK_TLDS = [
     'io', 'ai', 'co', 'me', 'sh', 'ly', 'to', 'is', 'it', 'us', 'in', 'im',
     'gg', 'so', 'vc', 'tv', 'cc', 'by', 'do', 'at', 'am', 'be', 'de', 'eu',
-    'fr', 'la', 're', 'st', 'ws', 'xyz', 'app', 'dev', 'tech', 'org', 'net'
+    'fr', 'la', 're', 'st', 'ws', 'xyz', 'app', 'dev', 'tech', 'org', 'net',
+    'ch', 'ee', 'li', 'fm', 'pm', 'ag', 'sc', 'mu', 'nu', 'cx', 'gs', 'ms'
   ];
 
   // --- DOM ELEMENTS ---
@@ -40,10 +42,7 @@
     totalCheckCount: document.getElementById('totalCheckCount'),
     sampleDataBtn: document.getElementById('sampleDataBtn'),
     clearInputBtn: document.getElementById('clearInputBtn'),
-    uploadTxtBtn: document.getElementById('uploadTxtBtn'),
-    txtFileInput: document.getElementById('txtFileInput'),
     domainHacksBtn: document.getElementById('domainHacksBtn'),
-    dropZone: document.getElementById('dropZone'),
     selectAllTldsBtn: document.getElementById('selectAllTldsBtn'),
     clearAllTldsBtn: document.getElementById('clearAllTldsBtn'),
     customTldInput: document.getElementById('customTldInput'),
@@ -73,7 +72,13 @@
     statsNav: document.getElementById('statsNav'),
     themeToggleBtn: document.getElementById('themeToggleBtn'),
     themeIcon: document.getElementById('themeIcon'),
-    themeLabel: document.getElementById('themeLabel')
+    themeLabel: document.getElementById('themeLabel'),
+    // Modal
+    modalBackdrop: document.getElementById('modalBackdrop'),
+    modalTitle: document.getElementById('modalTitle'),
+    modalMessage: document.getElementById('modalMessage'),
+    modalHacksList: document.getElementById('modalHacksList'),
+    modalOkBtn: document.getElementById('modalOkBtn')
   };
 
   // --- INITIALIZATION ---
@@ -110,39 +115,56 @@
   }
 
   // --- INPUT PARSER ---
-  function parseKeywords(text) {
-    if (!text) return [];
+  function parseInputs(text) {
+    if (!text) return { baseKeywords: [], specificDomains: [] };
     const cleaned = text.replace(/[,;\t\r\n]+/g, ' ');
     const tokens = cleaned.split(/\s+/).map(t => t.trim().toLowerCase()).filter(Boolean);
 
-    const uniqueKeywords = [];
-    const seen = new Set();
+    const baseKeywords = [];
+    const specificDomains = [];
+    const seenBase = new Set();
+    const seenSpecific = new Set();
 
     tokens.forEach(token => {
       let name = token.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '');
       name = name.replace(/^[.-]+|[.-]+$/g, '');
 
-      if (name.includes('.')) {
-        const parts = name.split('.');
-        name = parts[0];
-      }
+      if (!name) return;
 
-      if (name && !seen.has(name) && /^[a-z0-9-]+$/.test(name)) {
-        seen.add(name);
-        uniqueKeywords.push(name);
+      if (name.includes('.')) {
+        // Specific domain with TLD (e.g. "rad.io", "mybrand.com")
+        if (!seenSpecific.has(name) && /^[a-z0-9.-]+$/.test(name)) {
+          seenSpecific.add(name);
+          specificDomains.push(name);
+        }
+      } else {
+        // Base keyword without extension (e.g. "startup", "flux")
+        if (!seenBase.has(name) && /^[a-z0-9-]+$/.test(name)) {
+          seenBase.add(name);
+          baseKeywords.push(name);
+        }
       }
     });
 
-    return uniqueKeywords;
+    return { baseKeywords, specificDomains };
   }
 
   function updateInputCalculations() {
-    state.keywords = parseKeywords(dom.domainInput.value);
-    const kwCount = state.keywords.length;
-    const tldCount = state.selectedTlds.size;
-    const totalCombos = kwCount * tldCount;
+    const { baseKeywords, specificDomains } = parseInputs(dom.domainInput.value);
+    state.baseKeywords = baseKeywords;
+    state.specificDomains = specificDomains;
 
-    dom.inputStats.textContent = `${kwCount} keyword${kwCount === 1 ? '' : 's'} detected (${tldCount} TLDs active)`;
+    const baseCount = baseKeywords.length;
+    const specCount = specificDomains.length;
+    const tldCount = state.selectedTlds.size;
+    const totalCombos = (baseCount * tldCount) + specCount;
+
+    let statsDesc = [];
+    if (baseCount > 0) statsDesc.push(`${baseCount} keyword${baseCount === 1 ? '' : 's'} (${tldCount} TLDs)`);
+    if (specCount > 0) statsDesc.push(`${specCount} specific domain${specCount === 1 ? '' : 's'}`);
+    if (statsDesc.length === 0) statsDesc.push('0 keywords detected');
+
+    dom.inputStats.textContent = statsDesc.join(' + ');
     dom.totalCheckCount.textContent = totalCombos;
     dom.startBtn.disabled = totalCombos === 0 || state.isRunning;
     dom.statsNav.textContent = `${state.results.size} records`;
@@ -194,66 +216,83 @@
     });
   }
 
-  // --- FEATURE 3: DOMAIN HACK GENERATOR ---
+  // --- IN-PAGE MODAL DIALOG FOR DOMAIN HACKS ---
+  function showModal(title, message, hackItems = []) {
+    dom.modalTitle.textContent = title;
+    dom.modalMessage.textContent = message;
+    dom.modalHacksList.innerHTML = '';
+
+    if (hackItems.length > 0) {
+      dom.modalHacksList.style.display = 'flex';
+      hackItems.forEach(item => {
+        const span = document.createElement('span');
+        span.className = 'hack-item-pill';
+        span.textContent = item;
+        dom.modalHacksList.appendChild(span);
+      });
+    } else {
+      dom.modalHacksList.style.display = 'none';
+    }
+
+    dom.modalBackdrop.style.display = 'flex';
+  }
+
+  function hideModal() {
+    dom.modalBackdrop.style.display = 'none';
+  }
+
+  // --- DOMAIN HACK GENERATOR ---
   function generateDomainHacks() {
     const rawTokens = dom.domainInput.value.replace(/[,;\t\r\n]+/g, ' ').split(/\s+/).filter(Boolean);
     if (rawTokens.length === 0) {
-      alert('Please enter at least one word (e.g. "radio", "delight", "portfolio", "spotify") to find domain hacks.');
+      showModal(
+        'No Keywords Found',
+        'Please enter at least one word (e.g. "radio", "spotify", "portfolio", "delight") to generate domain hacks.'
+      );
       return;
     }
 
     const hacksFound = [];
-    const addedTlds = [];
+    const currentInputLines = dom.domainInput.value.split('\n').map(l => l.trim()).filter(Boolean);
+    const existingTokens = new Set(dom.domainInput.value.replace(/[,;\t\r\n]+/g, ' ').split(/\s+/).filter(Boolean));
 
     rawTokens.forEach(token => {
+      // If token already has a dot, skip
+      if (token.includes('.')) return;
+
       const word = token.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (word.length < 4) return;
 
-      // Check against known TLDs
+      // Find all matching TLD suffixes
       for (const tld of HACK_TLDS) {
         if (word.endsWith(tld) && word.length > tld.length + 1) {
           const base = word.slice(0, -tld.length);
-          const ext = `.${tld}`;
-          const hackDomain = `${base}${ext}`;
-          
-          if (!hacksFound.includes(hackDomain)) {
+          const hackDomain = `${base}.${tld}`;
+
+          if (!hacksFound.includes(hackDomain) && !existingTokens.has(hackDomain)) {
             hacksFound.push(hackDomain);
-            if (!state.selectedTlds.has(ext)) {
-              state.selectedTlds.add(ext);
-              state.customTlds.add(ext);
-              addedTlds.push(ext);
-            }
           }
         }
       }
     });
 
     if (hacksFound.length > 0) {
-      renderCustomTlds();
-      syncTldCheckboxes();
+      // Append ONLY specific hack domains to textarea (without polluting global TLD list!)
+      const updatedValue = currentInputLines.concat(hacksFound).join('\n');
+      dom.domainInput.value = updatedValue;
       updateInputCalculations();
-      alert(`✂️ Found ${hacksFound.length} creative domain hack(s):\n\n${hacksFound.join('\n')}\n\nTheir TLDs have been automatically added!`);
-    } else {
-      alert('No direct word-ending matches found for standard TLDs. Try words like: "radio", "portfolio", "delight", "focus", "crypto", "craft", "notif"');
-    }
-  }
 
-  // --- FEATURE 4: FILE UPLOAD & DRAG-AND-DROP ---
-  function handleFileRead(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target.result;
-      if (content) {
-        if (dom.domainInput.value.trim()) {
-          dom.domainInput.value += '\n' + content;
-        } else {
-          dom.domainInput.value = content;
-        }
-        updateInputCalculations();
-      }
-    };
-    reader.readAsText(file);
+      showModal(
+        'Domain Hacks Found',
+        `${hacksFound.length} specific domain hack(s) were generated and added to your check list:`,
+        hacksFound
+      );
+    } else {
+      showModal(
+        'No Domain Hacks Found',
+        'No direct word-ending matches were found for the entered keywords. Try words like "radio", "portfolio", "delight", "focus", "crypto", "craft", "notif".'
+      );
+    }
   }
 
   // --- RDAP QUERY ENGINE ---
@@ -322,19 +361,35 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  const retryCounts = new Map(); // domain -> 429 retry attempts
+  const retryCounts = new Map();
 
   async function startCheckProcess() {
-    if (state.keywords.length === 0 || state.selectedTlds.size === 0) return;
+    const { baseKeywords, specificDomains } = parseInputs(dom.domainInput.value);
+    if (baseKeywords.length === 0 && specificDomains.length === 0) return;
 
     retryCounts.clear();
     dom.progressSection.classList.remove('rate-limited');
 
     const domainsToCheck = [];
-    state.keywords.forEach(kw => {
+    const seen = new Set();
+
+    // 1. Combine base keywords with selected TLDs
+    baseKeywords.forEach(kw => {
       state.selectedTlds.forEach(tld => {
-        domainsToCheck.push(`${kw}${tld}`);
+        const d = `${kw}${tld}`;
+        if (!seen.has(d)) {
+          seen.add(d);
+          domainsToCheck.push(d);
+        }
       });
+    });
+
+    // 2. Add specific exact domains (e.g. "rad.io", "mybrand.com") directly without multiplying
+    specificDomains.forEach(d => {
+      if (!seen.has(d)) {
+        seen.add(d);
+        domainsToCheck.push(d);
+      }
     });
 
     state.queue = [...domainsToCheck];
@@ -392,7 +447,7 @@
         retryCounts.set(domain, retries);
 
         if (retries <= 3) {
-          const cooldownSec = retries * 2 + 1; // 3s, 5s, 7s
+          const cooldownSec = retries * 2 + 1;
           dom.progressSection.classList.add('rate-limited');
 
           for (let s = cooldownSec; s > 0; s--) {
@@ -521,7 +576,7 @@
           ${isTaken ? actionsHtml : ''}
         </div>
       </div>
-      <div class="record-right">
+      <div class="result-right">
         ${statusHtml}
         ${isAvail ? actionsHtml : ''}
         ${isErr ? actionsHtml : ''}
@@ -601,7 +656,7 @@
   function exportJson() {
     const data = Array.from(state.results.values());
     if (data.length === 0) {
-      alert('No records logged yet.');
+      showModal('No Records', 'No domain inspection records have been logged yet.');
       return;
     }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -611,7 +666,7 @@
   function exportCsv() {
     const data = Array.from(state.results.values());
     if (data.length === 0) {
-      alert('No records logged yet.');
+      showModal('No Records', 'No domain inspection records have been logged yet.');
       return;
     }
 
@@ -636,7 +691,7 @@
       .map(d => d.domain);
 
     if (available.length === 0) {
-      alert('No available domains to copy.');
+      showModal('No Available Domains', 'No available domains found to copy.');
       return;
     }
 
@@ -687,45 +742,14 @@
       updateInputCalculations();
     });
 
-    // Feature 3: Domain Hacks Button
+    // Domain Hacks Button
     dom.domainHacksBtn.addEventListener('click', generateDomainHacks);
 
-    // Feature 4: Upload .txt / .csv File
-    dom.uploadTxtBtn.addEventListener('click', () => dom.txtFileInput.click());
-    dom.txtFileInput.addEventListener('change', (e) => {
-      if (e.target.files && e.target.files[0]) {
-        handleFileRead(e.target.files[0]);
-        e.target.value = '';
-      }
+    // Modal OK Button & Backdrop click
+    dom.modalOkBtn.addEventListener('click', hideModal);
+    dom.modalBackdrop.addEventListener('click', (e) => {
+      if (e.target === dom.modalBackdrop) hideModal();
     });
-
-    // Feature 4: Drag & Drop over textarea
-    if (dom.dropZone) {
-      ['dragenter', 'dragover'].forEach(eventName => {
-        dom.dropZone.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dom.dropZone.classList.add('drag-active');
-        }, false);
-      });
-
-      ['dragleave', 'dragend'].forEach(eventName => {
-        dom.dropZone.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dom.dropZone.classList.remove('drag-active');
-        }, false);
-      });
-
-      dom.dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dom.dropZone.classList.remove('drag-active');
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-          handleFileRead(e.dataTransfer.files[0]);
-        }
-      }, false);
-    }
 
     // TLD Checkboxes
     document.querySelectorAll('.tag-row input[type="checkbox"]').forEach(cb => {

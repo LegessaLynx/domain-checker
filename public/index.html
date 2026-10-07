@@ -39,10 +39,7 @@
           <div class="panel-header">
             <h2 class="panel-heading">Domains to Check</h2>
             <div class="quick-actions">
-              <input type="file" id="txtFileInput" accept=".txt,.csv,.text" style="display: none;">
-              <button type="button" id="uploadTxtBtn" class="text-link" title="Upload a .txt or .csv file">📂 Upload</button>
-              <span class="sep">/</span>
-              <button type="button" id="domainHacksBtn" class="text-link" title="Generate creative split domain hacks">✂️ Hacks</button>
+              <button type="button" id="domainHacksBtn" class="text-link" title="Generate creative split domain hacks">Domain Hacks</button>
               <span class="sep">/</span>
               <button type="button" id="sampleDataBtn" class="text-link">Sample</button>
               <span class="sep">/</span>
@@ -50,18 +47,13 @@
             </div>
           </div>
 
-          <!-- Domain Names Input (Supports Drag & Drop) -->
+          <!-- Domain Names Input -->
           <div class="form-block">
             <label for="domainInput" class="field-label">Keywords or Domain Names</label>
-            <div class="drop-zone" id="dropZone">
-              <textarea 
-                id="domainInput" 
-                rows="4" 
-                placeholder="Enter names in any format:&#10;startup, flux, hyperlab&#10;or line-by-line / drag & drop .txt file here"></textarea>
-              <div class="drop-overlay" id="dropOverlay">
-                <span>📁 Drop .txt file here</span>
-              </div>
-            </div>
+            <textarea 
+              id="domainInput" 
+              rows="4" 
+              placeholder="Enter names in any format:&#10;startup, flux, hyperlab&#10;or line-by-line&#10;or domain.com"></textarea>
             <div class="field-meta" id="inputStats">0 keywords detected</div>
           </div>
 
@@ -216,6 +208,20 @@
       </section>
 
     </main>
+
+    <!-- In-Page Modal for Domain Hacks Notification -->
+    <div class="modal-backdrop" id="modalBackdrop" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title" id="modalTitle">Domain Hacks Found</h3>
+        </div>
+        <p class="modal-message" id="modalMessage">The following specific domain hacks were detected and added to your check list:</p>
+        <div class="modal-hacks-list" id="modalHacksList"></div>
+        <div class="modal-actions">
+          <button type="button" id="modalOkBtn" class="btn-primary-cta modal-btn">OK</button>
+        </div>
+      </div>
+    </div>
 
   </div>
 
