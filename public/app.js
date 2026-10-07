@@ -10,6 +10,10 @@
     // Default TLDs: .com, .io, .co, .xyz, .dev, .app, .tech
     selectedTlds: new Set(['.com', '.io', '.co', '.xyz', '.dev', '.app', '.tech']),
     customTlds: new Set(),
+    selectedPrefixes: new Set(['get', 'try', 'use']),
+    selectedSuffixes: new Set(['hq', 'app', 'lab', 'labs', 'ai']),
+    customPrefixes: new Set(),
+    customSuffixes: new Set(),
     results: new Map(), // domain -> { domain, available, expirationDate, registrationDate, registrar, statusFlags, error, starred }
     favorites: new Set(JSON.parse(localStorage.getItem('domain_checker_favs') || '[]')),
     activeFilter: 'all',
@@ -27,13 +31,59 @@
     }
   };
 
-  // Known TLDs for domain hacks
+  // 120+ High-Utility TLDs for domain hacks
   const HACK_TLDS = [
+    // 2-Letter Country & Utility Codes
     'io', 'ai', 'co', 'me', 'sh', 'ly', 'to', 'is', 'it', 'us', 'in', 'im',
     'gg', 'so', 'vc', 'tv', 'cc', 'by', 'do', 'at', 'am', 'be', 'de', 'eu',
-    'fr', 'la', 're', 'st', 'ws', 'xyz', 'app', 'dev', 'tech', 'org', 'net',
-    'ch', 'ee', 'li', 'fm', 'pm', 'ag', 'sc', 'mu', 'nu', 'cx', 'gs', 'ms'
+    'fr', 'la', 're', 'st', 'ws', 'ch', 'ee', 'li', 'fm', 'pm', 'ag', 'sc',
+    'mu', 'nu', 'cx', 'gs', 'ms', 'ht', 'pe', 'ma', 'ph', 'gl', 'pt', 'al',
+    'es', 'gr', 'pl', 'ro', 'se', 'fi', 'no', 'nl', 'lu', 'cz', 'sk', 'hu',
+    'hr', 'si', 'bg', 'lt', 'lv', 'md', 'mk', 'rs', 'ba', 'je', 'pw', 'vg',
+    'tc', 'gd', 'dm', 'lc', 'cl', 'ar', 'uy', 'py', 'bo', 'ec', 'cr', 'pa',
+    'bz', 'gt', 'hn', 'sv', 'ni', 'mx', 'ca', 'jp', 'kr', 'tw', 'hk', 'sg',
+    'my', 'th', 'vn', 'id',
+    // 3+ Letter & Modern gTLDs
+    'xyz', 'app', 'dev', 'tech', 'org', 'net', 'art', 'pro', 'top', 'one',
+    'run', 'pub', 'fit', 'win', 'bid', 'bio', 'fyi', 'eco', 'ski', 'cat',
+    'dog', 'tax', 'law', 'ceo', 'red', 'tips', 'show', 'film', 'pics', 'cool',
+    'zone', 'land', 'city', 'haus', 'cafe', 'fund', 'cash', 'bank', 'pay',
+    'link', 'live', 'news', 'club', 'work', 'chat', 'page', 'site', 'space',
+    'store', 'host', 'media', 'press', 'agency', 'online'
   ];
+
+  // Predefined Prefix & Suffix Collections
+  const DEFAULT_PREFIXES = [
+    'get', 'try', 'use', 'hey', 'the', 'my', 'your', 'go', 'join', 'meet',
+    'open', 'start', 'launch', 'run', 'we', 'ask', 'pro', 'neo', 'meta',
+    'super', 'all', 'buy', 'tap', 'click', 'next', 'pure', 'real', 'fast', 'smart', 'one'
+  ];
+
+  const DEFAULT_SUFFIXES = [
+    'hq', 'app', 'lab', 'labs', 'ai', 'io', 'dev', 'tech', 'hub', 'space',
+    'base', 'stack', 'box', 'flow', 'sync', 'grid', 'pulse', 'desk', 'vault',
+    'craft', 'link', 'club', 'room', 'house', 'nest', 'crew', 'group', 'zone',
+    'co', 'ly', 'ify', 'now', 'pro', 'one', 'x', 'direct', 'online', 'wave'
+  ];
+
+  const AFFIX_PRESETS = {
+    saas: {
+      prefixes: ['get', 'try', 'use', 'join', 'open', 'pro'],
+      suffixes: ['hq', 'app', 'lab', 'labs', 'ai', 'hub', 'flow', 'stack']
+    },
+    tech: {
+      prefixes: ['open', 'neo', 'meta', 'smart', 'next'],
+      suffixes: ['dev', 'tech', 'io', 'base', 'stack', 'box', 'grid', 'desk', 'vault']
+    },
+    action: {
+      prefixes: ['start', 'launch', 'run', 'go', 'tap', 'click', 'buy'],
+      suffixes: ['now', 'flow', 'sync', 'pulse', 'craft', 'link', 'direct']
+    },
+    brand: {
+      prefixes: ['the', 'my', 'your', 'hey', 'we', 'all', 'pure', 'real'],
+      suffixes: ['club', 'space', 'house', 'nest', 'crew', 'group', 'zone', 'co', 'one']
+    }
+  };
 
   // --- DOM ELEMENTS ---
   const dom = {
@@ -42,6 +92,7 @@
     totalCheckCount: document.getElementById('totalCheckCount'),
     clearInputBtn: document.getElementById('clearInputBtn'),
     domainHacksBtn: document.getElementById('domainHacksBtn'),
+    affixesBtn: document.getElementById('affixesBtn'),
     selectAllTldsBtn: document.getElementById('selectAllTldsBtn'),
     clearAllTldsBtn: document.getElementById('clearAllTldsBtn'),
     customTldInput: document.getElementById('customTldInput'),
@@ -70,12 +121,26 @@
     pillError: document.getElementById('pillError'),
     themeToggleBtn: document.getElementById('themeToggleBtn'),
     themeLabel: document.getElementById('themeLabel'),
-    // Modal
+    // Domain Hacks Modal
     modalBackdrop: document.getElementById('modalBackdrop'),
     modalTitle: document.getElementById('modalTitle'),
     modalMessage: document.getElementById('modalMessage'),
     modalHacksList: document.getElementById('modalHacksList'),
-    modalOkBtn: document.getElementById('modalOkBtn')
+    modalOkBtn: document.getElementById('modalOkBtn'),
+    modalCloseXBtn: document.getElementById('modalCloseXBtn'),
+    // Prefix & Suffix Modal
+    affixesModalBackdrop: document.getElementById('affixesModalBackdrop'),
+    affixesModalCloseXBtn: document.getElementById('affixesModalCloseXBtn'),
+    prefixChipsContainer: document.getElementById('prefixChipsContainer'),
+    suffixChipsContainer: document.getElementById('suffixChipsContainer'),
+    selectedPrefixCount: document.getElementById('selectedPrefixCount'),
+    selectedSuffixCount: document.getElementById('selectedSuffixCount'),
+    customAffixInput: document.getElementById('customAffixInput'),
+    addCustomPrefixBtn: document.getElementById('addCustomPrefixBtn'),
+    addCustomSuffixBtn: document.getElementById('addCustomSuffixBtn'),
+    affixLiveSummary: document.getElementById('affixLiveSummary'),
+    cancelAffixesBtn: document.getElementById('cancelAffixesBtn'),
+    applyAffixesBtn: document.getElementById('applyAffixesBtn')
   };
 
   // --- INITIALIZATION ---
@@ -83,6 +148,7 @@
     initTheme();
     bindEvents();
     syncTldCheckboxes();
+    renderAffixChips();
     updateInputCalculations();
   }
 
@@ -240,12 +306,14 @@
     const rawTokens = dom.domainInput.value.replace(/[,;\t\r\n]+/g, ' ').split(/\s+/).filter(Boolean);
     if (rawTokens.length === 0) {
       showModal(
-        'No Keywords Found',
-        'Please enter at least one word (e.g. "radio", "spotify", "portfolio", "delight") to generate domain hacks.'
+        'Domain Hacks Generator',
+        'Enter keywords (e.g. "radio", "focus", "studio", "delight", "spotify") in the box and click Domain Hacks to discover clever TLD combinations.',
+        []
       );
       return;
     }
 
+    const sortedTlds = [...HACK_TLDS].sort((a, b) => b.length - a.length);
     const hacksFound = [];
     const currentInputLines = dom.domainInput.value.split('\n').map(l => l.trim()).filter(Boolean);
     const existingTokens = new Set(dom.domainInput.value.replace(/[,;\t\r\n]+/g, ' ').split(/\s+/).filter(Boolean));
@@ -255,10 +323,10 @@
       if (token.includes('.')) return;
 
       const word = token.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (word.length < 4) return;
+      if (word.length < 3) return;
 
-      // Find all matching TLD suffixes
-      for (const tld of HACK_TLDS) {
+      // Find best matching TLD suffix
+      for (const tld of sortedTlds) {
         if (word.endsWith(tld) && word.length > tld.length + 1) {
           const base = word.slice(0, -tld.length);
           const hackDomain = `${base}.${tld}`;
@@ -266,27 +334,174 @@
           if (!hacksFound.includes(hackDomain) && !existingTokens.has(hackDomain)) {
             hacksFound.push(hackDomain);
           }
+          break;
         }
       }
     });
 
     if (hacksFound.length > 0) {
-      // Append ONLY specific hack domains to textarea (without polluting global TLD list!)
       const updatedValue = currentInputLines.concat(hacksFound).join('\n');
       dom.domainInput.value = updatedValue;
       updateInputCalculations();
 
       showModal(
-        'Domain Hacks Found',
-        `${hacksFound.length} specific domain hack(s) were generated and added to your check list:`,
+        'Domain Hacks Found & Added',
+        `Generated ${hacksFound.length} creative domain hack(s) and added directly to your check list:`,
         hacksFound
       );
     } else {
       showModal(
         'No Domain Hacks Found',
-        'No direct word-ending matches were found for the entered keywords. Try words like "radio", "portfolio", "delight", "focus", "crypto", "craft", "notif".'
+        'No word endings matched our 120+ supported TLDs for your current keywords. Try words like "radio", "portfolio", "delight", "focus", "creative", "delicious".',
+        []
       );
     }
+  }
+
+  // --- PREFIX & SUFFIX NAME GENERATOR ---
+  function renderAffixChips() {
+    // Prefixes
+    if (dom.prefixChipsContainer) {
+      dom.prefixChipsContainer.innerHTML = '';
+      const allPrefixes = [...DEFAULT_PREFIXES, ...state.customPrefixes];
+      allPrefixes.forEach(prefix => {
+        const label = document.createElement('label');
+        label.className = 'affix-chip';
+        const isChecked = state.selectedPrefixes.has(prefix);
+        label.innerHTML = `
+          <input type="checkbox" value="${prefix}" ${isChecked ? 'checked' : ''}>
+          <span>${prefix}-</span>
+        `;
+        label.querySelector('input').addEventListener('change', (e) => {
+          if (e.target.checked) state.selectedPrefixes.add(prefix);
+          else state.selectedPrefixes.delete(prefix);
+          updateAffixSummary();
+        });
+        dom.prefixChipsContainer.appendChild(label);
+      });
+    }
+
+    // Suffixes
+    if (dom.suffixChipsContainer) {
+      dom.suffixChipsContainer.innerHTML = '';
+      const allSuffixes = [...DEFAULT_SUFFIXES, ...state.customSuffixes];
+      allSuffixes.forEach(suffix => {
+        const label = document.createElement('label');
+        label.className = 'affix-chip';
+        const isChecked = state.selectedSuffixes.has(suffix);
+        label.innerHTML = `
+          <input type="checkbox" value="${suffix}" ${isChecked ? 'checked' : ''}>
+          <span>-${suffix}</span>
+        `;
+        label.querySelector('input').addEventListener('change', (e) => {
+          if (e.target.checked) state.selectedSuffixes.add(suffix);
+          else state.selectedSuffixes.delete(suffix);
+          updateAffixSummary();
+        });
+        dom.suffixChipsContainer.appendChild(label);
+      });
+    }
+
+    updateAffixSummary();
+  }
+
+  function applyAffixPreset(presetName) {
+    if (presetName === 'all') {
+      DEFAULT_PREFIXES.forEach(p => state.selectedPrefixes.add(p));
+      state.customPrefixes.forEach(p => state.selectedPrefixes.add(p));
+      DEFAULT_SUFFIXES.forEach(s => state.selectedSuffixes.add(s));
+      state.customSuffixes.forEach(s => state.selectedSuffixes.add(s));
+    } else if (presetName === 'none') {
+      state.selectedPrefixes.clear();
+      state.selectedSuffixes.clear();
+    } else if (AFFIX_PRESETS[presetName]) {
+      const preset = AFFIX_PRESETS[presetName];
+      state.selectedPrefixes.clear();
+      state.selectedSuffixes.clear();
+      preset.prefixes.forEach(p => state.selectedPrefixes.add(p));
+      preset.suffixes.forEach(s => state.selectedSuffixes.add(s));
+    }
+    renderAffixChips();
+  }
+
+  function addCustomAffix(type, text) {
+    let clean = text.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!clean) return;
+
+    if (type === 'prefix') {
+      state.customPrefixes.add(clean);
+      state.selectedPrefixes.add(clean);
+    } else {
+      state.customSuffixes.add(clean);
+      state.selectedSuffixes.add(clean);
+    }
+    dom.customAffixInput.value = '';
+    renderAffixChips();
+  }
+
+  function updateAffixSummary() {
+    const pCount = state.selectedPrefixes.size;
+    const sCount = state.selectedSuffixes.size;
+
+    if (dom.selectedPrefixCount) dom.selectedPrefixCount.textContent = `${pCount} selected`;
+    if (dom.selectedSuffixCount) dom.selectedSuffixCount.textContent = `${sCount} selected`;
+
+    const { baseKeywords } = parseInputs(dom.domainInput.value);
+    const kCount = baseKeywords.length;
+    const totalVariations = kCount * (pCount + sCount);
+
+    if (dom.affixLiveSummary) {
+      if (kCount === 0) {
+        dom.affixLiveSummary.textContent = `${pCount + sCount} affixes selected (enter keywords in main box to generate)`;
+      } else {
+        dom.affixLiveSummary.textContent = `${totalVariations} new variations will be generated for ${kCount} keyword${kCount === 1 ? '' : 's'}`;
+      }
+    }
+  }
+
+  function showAffixesModal() {
+    updateAffixSummary();
+    if (dom.affixesModalBackdrop) dom.affixesModalBackdrop.style.display = 'flex';
+  }
+
+  function hideAffixesModal() {
+    if (dom.affixesModalBackdrop) dom.affixesModalBackdrop.style.display = 'none';
+  }
+
+  function applyAffixesToDomainInput() {
+    const { baseKeywords } = parseInputs(dom.domainInput.value);
+    if (baseKeywords.length === 0) {
+      alert('Please enter at least one keyword (e.g. "flux", "cloud", "nova") in the main box first.');
+      return;
+    }
+
+    if (state.selectedPrefixes.size === 0 && state.selectedSuffixes.size === 0) {
+      alert('Please select at least one prefix or suffix to generate variations.');
+      return;
+    }
+
+    const generatedNames = [];
+    baseKeywords.forEach(keyword => {
+      // Prefixes
+      state.selectedPrefixes.forEach(prefix => {
+        generatedNames.push(`${prefix}${keyword}`);
+      });
+      // Suffixes
+      state.selectedSuffixes.forEach(suffix => {
+        generatedNames.push(`${keyword}${suffix}`);
+      });
+    });
+
+    const currentLines = dom.domainInput.value.split('\n').map(l => l.trim()).filter(Boolean);
+    const existingTokens = new Set(dom.domainInput.value.replace(/[,;\t\r\n]+/g, ' ').split(/\s+/).filter(Boolean));
+    const toAdd = generatedNames.filter(n => !existingTokens.has(n));
+
+    if (toAdd.length > 0) {
+      dom.domainInput.value = currentLines.concat(toAdd).join('\n');
+      updateInputCalculations();
+    }
+
+    hideAffixesModal();
   }
 
   // --- RDAP QUERY ENGINE ---
@@ -744,11 +959,55 @@
     // Domain Hacks Button
     dom.domainHacksBtn.addEventListener('click', generateDomainHacks);
 
-    // Modal OK Button & Backdrop click
+    // Domain Hacks Modal OK & Close Button & Backdrop click
     dom.modalOkBtn.addEventListener('click', hideModal);
+    if (dom.modalCloseXBtn) dom.modalCloseXBtn.addEventListener('click', hideModal);
     dom.modalBackdrop.addEventListener('click', (e) => {
       if (e.target === dom.modalBackdrop) hideModal();
     });
+
+    // Prefix & Suffix Modal Triggers & Actions
+    if (dom.affixesBtn) {
+      dom.affixesBtn.addEventListener('click', showAffixesModal);
+    }
+    if (dom.affixesModalCloseXBtn) {
+      dom.affixesModalCloseXBtn.addEventListener('click', hideAffixesModal);
+    }
+    if (dom.cancelAffixesBtn) {
+      dom.cancelAffixesBtn.addEventListener('click', hideAffixesModal);
+    }
+    if (dom.applyAffixesBtn) {
+      dom.applyAffixesBtn.addEventListener('click', applyAffixesToDomainInput);
+    }
+    if (dom.affixesModalBackdrop) {
+      dom.affixesModalBackdrop.addEventListener('click', (e) => {
+        if (e.target === dom.affixesModalBackdrop) hideAffixesModal();
+      });
+    }
+
+    // Affix Presets
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const preset = e.target.getAttribute('data-preset');
+        if (preset) applyAffixPreset(preset);
+      });
+    });
+
+    // Custom Affix Adders
+    if (dom.addCustomPrefixBtn) {
+      dom.addCustomPrefixBtn.addEventListener('click', () => addCustomAffix('prefix', dom.customAffixInput.value));
+    }
+    if (dom.addCustomSuffixBtn) {
+      dom.addCustomSuffixBtn.addEventListener('click', () => addCustomAffix('suffix', dom.customAffixInput.value));
+    }
+    if (dom.customAffixInput) {
+      dom.customAffixInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addCustomAffix('suffix', dom.customAffixInput.value);
+        }
+      });
+    }
 
     // TLD Checkboxes
     document.querySelectorAll('.tag-row input[type="checkbox"]').forEach(cb => {
