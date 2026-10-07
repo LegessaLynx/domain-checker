@@ -480,7 +480,7 @@
         <div class="buy-deck">
           <a href="https://porkbun.com/checkout/search?q=${encodeURIComponent(entry.domain)}" target="_blank" rel="noopener" class="editorial-link" title="Open on Porkbun">Porkbun</a>
           <a href="https://www.namecheap.com/domains/registration/results/?domain=${encodeURIComponent(entry.domain)}" target="_blank" rel="noopener" class="editorial-link" title="Open on Namecheap">Namecheap</a>
-          <a href="https://www.cloudflare.com/products/registrar/" target="_blank" rel="noopener" class="editorial-link" title="Open on Cloudflare">Cloudflare</a>
+          <a href="https://www.cloudflare.com/domains/search?q=${encodeURIComponent(entry.domain)}" target="_blank" rel="noopener" class="editorial-link" title="Open on Cloudflare">Cloudflare</a>
         </div>
       `;
     } else if (isTaken) {
