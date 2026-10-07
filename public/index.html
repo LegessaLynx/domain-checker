@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Domain Checker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%23202020%22/><circle cx=%2250%22 cy=%2250%22 r=%2222%22 fill=%22%23ff682c%22/></svg>">
+</head>
+<body class="dark-mode">
+  <div class="page-canvas">
+    
+    <!-- Minimal Header -->
+    <header class="header">
+      <nav class="nav-pill-container">
+        <span class="ember-dot"></span>
+        <span class="nav-pill-item active">RDAP Registry</span>
+        <span class="nav-pill-divider">•</span>
+        <span class="nav-pill-item" id="statsNav">0 records</span>
+      </nav>
+
+      <div class="header-right">
+        <button type="button" id="themeToggleBtn" class="btn-ghost-sm theme-btn" title="Toggle Light / Dark Mode">
+          <span id="themeIcon">☀️</span> <span id="themeLabel">Light</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Workspace -->
+    <main class="main-layout">
+      
+      <!-- Input & Configuration Card -->
+      <aside class="control-panel">
+        <div class="asymmetric-card config-surface">
+          
+          <div class="panel-header">
+            <h2 class="panel-heading">Domains to Check</h2>
+            <div class="quick-actions">
+              <input type="file" id="txtFileInput" accept=".txt,.csv,.text" style="display: none;">
+              <button type="button" id="uploadTxtBtn" class="text-link" title="Upload a .txt or .csv file">📂 Upload</button>
+              <span class="sep">/</span>
+              <button type="button" id="domainHacksBtn" class="text-link" title="Generate creative split domain hacks">✂️ Hacks</button>
+              <span class="sep">/</span>
+              <button type="button" id="sampleDataBtn" class="text-link">Sample</button>
+              <span class="sep">/</span>
+              <button type="button" id="clearInputBtn" class="text-link">Clear</button>
+            </div>
+          </div>
+
+          <!-- Domain Names Input (Supports Drag & Drop) -->
+          <div class="form-block">
+            <label for="domainInput" class="field-label">Keywords or Domain Names</label>
+            <div class="drop-zone" id="dropZone">
+              <textarea 
+                id="domainInput" 
+                rows="4" 
+                placeholder="Enter names in any format:&#10;startup, flux, hyperlab&#10;or line-by-line / drag & drop .txt file here"></textarea>
+              <div class="drop-overlay" id="dropOverlay">
+                <span>📁 Drop .txt file here</span>
+              </div>
+            </div>
+            <div class="field-meta" id="inputStats">0 keywords detected</div>
+          </div>
+
+          <!-- TLD Selection -->
+          <div class="form-block">
+            <div class="field-header">
+              <label class="field-label">TLD Extensions</label>
+              <div class="tld-quick-toggles">
+                <button type="button" id="selectAllTldsBtn" class="btn-micro">All</button>
+                <button type="button" id="clearAllTldsBtn" class="btn-micro">None</button>
+              </div>
+            </div>
+
+            <div class="tld-deck">
+              <!-- Popular -->
+              <div class="tld-group">
+                <span class="tld-group-label">Popular</span>
+                <div class="tag-row" id="popularTlds">
+                  <label class="tag-chip"><input type="checkbox" value=".com" checked><span>.com</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".io" checked><span>.io</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".co" checked><span>.co</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".xyz" checked><span>.xyz</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".net"><span>.net</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".org"><span>.org</span></label>
+                </div>
+              </div>
+
+              <!-- Tech & Dev -->
+              <div class="tld-group">
+                <span class="tld-group-label">Tech & Dev</span>
+                <div class="tag-row" id="techTlds">
+                  <label class="tag-chip"><input type="checkbox" value=".dev" checked><span>.dev</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".app" checked><span>.app</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".tech" checked><span>.tech</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".ai"><span>.ai</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".sh"><span>.sh</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".me"><span>.me</span></label>
+                </div>
+              </div>
+
+              <!-- Modern -->
+              <div class="tld-group">
+                <span class="tld-group-label">Modern</span>
+                <div class="tag-row" id="modernTlds">
+                  <label class="tag-chip"><input type="checkbox" value=".cloud"><span>.cloud</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".store"><span>.store</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".online"><span>.online</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".agency"><span>.agency</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".site"><span>.site</span></label>
+                  <label class="tag-chip"><input type="checkbox" value=".cc"><span>.cc</span></label>
+                </div>
+              </div>
+
+              <!-- Custom TLD -->
+              <div class="tld-group custom-tld-group">
+                <span class="tld-group-label">Custom TLD</span>
+                <div class="custom-input-wrap">
+                  <input type="text" id="customTldInput" placeholder=".tr, .de, .uk..." />
+                  <button type="button" id="addCustomTldBtn" class="btn-ghost-sm">+ Add</button>
+                </div>
+                <div class="tag-row" id="customTlds"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rate Limiting Presets -->
+          <div class="form-block">
+            <label class="field-label">Request Speed & Safe Mode</label>
+            <div class="rate-presets">
+              <label class="preset-card">
+                <input type="radio" name="speedPreset" value="fast">
+                <div class="preset-body">
+                  <div class="preset-name">Fast</div>
+                  <div class="preset-detail">150ms / 3 parallel</div>
+                </div>
+              </label>
+              <label class="preset-card">
+                <input type="radio" name="speedPreset" value="balanced" checked>
+                <div class="preset-body">
+                  <div class="preset-name">Balanced</div>
+                  <div class="preset-detail">350ms / 2 parallel</div>
+                </div>
+              </label>
+              <label class="preset-card">
+                <input type="radio" name="speedPreset" value="safe">
+                <div class="preset-body">
+                  <div class="preset-name">Safe</div>
+                  <div class="preset-detail">800ms / 1 parallel</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Action Stack -->
+          <div class="action-stack">
+            <button type="button" id="startBtn" class="btn-primary-cta">
+              Check Domains (<span id="totalCheckCount">0</span> Total)
+            </button>
+            <div class="run-control-bar" id="runControls" style="display: none;">
+              <button type="button" id="pauseBtn" class="btn-ghost">Pause</button>
+              <button type="button" id="stopBtn" class="btn-ghost">Stop</button>
+            </div>
+          </div>
+
+          <!-- Progress Ribbon -->
+          <div class="progress-ribbon" id="progressSection" style="display: none;">
+            <div class="progress-meta">
+              <span id="progressStatusText">Checking domains...</span>
+              <span id="progressPercent" class="mono-num">0%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="progressBarFill"></div>
+            </div>
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- Results Observatory -->
+      <section class="results-observatory">
+        <div class="observatory-card">
+          
+          <!-- Filter and Utility Bar -->
+          <div class="observatory-toolbar">
+            <div class="filter-pill-nav">
+              <button class="filter-tab active" data-filter="all">All <span class="tab-count" id="statAll">0</span></button>
+              <button class="filter-tab" data-filter="available">Available <span class="tab-count" id="statAvail">0</span></button>
+              <button class="filter-tab" data-filter="taken">Taken <span class="tab-count" id="statTaken">0</span></button>
+              <button class="filter-tab" data-filter="favorites">★ Saved <span class="tab-count" id="statFav">0</span></button>
+              <button class="filter-tab" data-filter="error" id="pillError" style="display: none;">Errors <span class="tab-count" id="statErr">0</span></button>
+            </div>
+
+            <div class="observatory-actions">
+              <input type="text" id="searchFilter" class="filter-search-box" placeholder="Filter results...">
+              <button type="button" id="exportJsonBtn" class="btn-ghost-sm" title="Export JSON">JSON</button>
+              <button type="button" id="exportCsvBtn" class="btn-ghost-sm" title="Export CSV">CSV</button>
+              <button type="button" id="copyAvailBtn" class="btn-ghost-sm" title="Copy Available List">Copy</button>
+              <button type="button" id="clearResultsBtn" class="btn-ghost-sm" title="Clear All">Clear</button>
+            </div>
+          </div>
+
+          <!-- Records Feed -->
+          <div class="records-feed" id="resultsContainer">
+            <div class="empty-state" id="emptyState">
+              <div class="empty-glyph">◌</div>
+              <h3 class="empty-title">Ready to check</h3>
+              <p class="empty-desc">Enter domain keywords on the left and click <strong>Check Domains</strong>.</p>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
