@@ -361,13 +361,15 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  const retryCounts = new Map();
+  const retryCounts = new Map(); // domain -> 429 rate limit retries
+  const errorRetries = new Map(); // domain -> network/server error retries
 
   async function startCheckProcess() {
     const { baseKeywords, specificDomains } = parseInputs(dom.domainInput.value);
     if (baseKeywords.length === 0 && specificDomains.length === 0) return;
 
     retryCounts.clear();
+    errorRetries.clear();
     dom.progressSection.classList.remove('rate-limited');
 
     const domainsToCheck = [];
@@ -472,6 +474,22 @@
           continue;
         } else {
           result.error = 'Rate limit (HTTP 429 - retried 3 times)';
+        }
+      }
+
+      if (result.status === 'error' || (result.status === 'success' && result.available === null)) {
+        const errRetries = (errorRetries.get(domain) || 0) + 1;
+        errorRetries.set(domain, errRetries);
+
+        if (errRetries <= 2) {
+          // Automatic silent background retry (attempt 2 and 3)
+          updateProgressUI(
+            Math.round((state.completedTasks / state.totalTasks) * 100),
+            `🔄 Retrying "${domain}" (attempt ${errRetries + 1}/3)...`
+          );
+          await sleep(400 * errRetries);
+          state.queue.unshift(domain);
+          continue;
         }
       }
 

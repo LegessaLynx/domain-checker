@@ -108,7 +108,7 @@ class DomainCheckerHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def handle_rdap_proxy(self, parsed):
-        """Query official RDAP servers directly and return authoritative result."""
+        """Query official RDAP servers directly with automatic fallback to rdap.org."""
         params = urllib.parse.parse_qs(parsed.query)
         domain = params.get("domain", [""])[0].strip().lower()
 
@@ -120,80 +120,76 @@ class DomainCheckerHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         tld = domain.split(".")[-1]
-        base_endpoint = DIRECT_RDAP_SERVERS.get(tld, "https://rdap.org/domain/")
-        rdap_url = f"{base_endpoint}{urllib.parse.quote(domain)}"
+        base_endpoint = DIRECT_RDAP_SERVERS.get(tld)
+
+        urls_to_try = []
+        if base_endpoint:
+            urls_to_try.append(f"{base_endpoint}{urllib.parse.quote(domain)}")
+        urls_to_try.append(f"https://rdap.org/domain/{urllib.parse.quote(domain)}")
+
         headers = {
             "User-Agent": "DomainCheckerApp/1.0 (https://github.com/domain-checker)",
             "Accept": "application/rdap+json, application/json"
         }
 
-        req = urllib.request.Request(rdap_url, headers=headers)
-        
-        try:
-            with urllib.request.urlopen(req, timeout=10) as response:
-                content = response.read()
-                data = json.loads(content.decode("utf-8"))
-                
-                # Extract key metadata for clean client consumption
-                formatted = self.format_rdap_response(domain, data, available=False)
-                
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps(formatted).encode("utf-8"))
+        last_error = None
+        for attempt, url in enumerate(urls_to_try):
+            req = urllib.request.Request(url, headers=headers)
+            try:
+                with urllib.request.urlopen(req, timeout=7) as response:
+                    content = response.read()
+                    data = json.loads(content.decode("utf-8"))
+                    formatted = self.format_rdap_response(domain, data, available=False)
+                    
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps(formatted).encode("utf-8"))
+                    return
 
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                # 404 from authoritative RDAP means domain object does not exist = AVAILABLE!
-                formatted = {
-                    "domain": domain,
-                    "available": True,
-                    "status_code": 404,
-                    "status_text": "Available (Unregistered)",
-                    "message": "Domain is not registered."
-                }
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps(formatted).encode("utf-8"))
-            elif e.code == 429:
-                self.send_response(429)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({
-                    "domain": domain,
-                    "error": "Rate limit reached (HTTP 429).",
-                    "status_code": 429
-                }).encode("utf-8"))
-            else:
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({
-                    "domain": domain,
-                    "available": None,
-                    "status_code": e.code,
-                    "error": f"RDAP responded with HTTP {e.code}"
-                }).encode("utf-8"))
+            except urllib.error.HTTPError as e:
+                if e.code == 404:
+                    formatted = {
+                        "domain": domain,
+                        "available": True,
+                        "status_code": 404,
+                        "status_text": "Available (Unregistered)",
+                        "message": "Domain is not registered."
+                    }
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps(formatted).encode("utf-8"))
+                    return
+                elif e.code == 429:
+                    self.send_response(429)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "domain": domain,
+                        "error": "Rate limit reached (HTTP 429).",
+                        "status_code": 429
+                    }).encode("utf-8"))
+                    return
+                else:
+                    last_error = f"HTTP {e.code}"
+                    time.sleep(0.3)
+                    continue
 
-        except urllib.error.URLError as e:
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "domain": domain,
-                "available": None,
-                "error": f"Network error: {str(e.reason)}"
-            }).encode("utf-8"))
-        except Exception as e:
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "domain": domain,
-                "available": None,
-                "error": f"Unexpected error: {str(e)}"
-            }).encode("utf-8"))
+            except (urllib.error.URLError, Exception) as e:
+                last_error = str(e)
+                time.sleep(0.3)
+                continue
+
+        # If all fallback attempts fail
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "domain": domain,
+            "available": None,
+            "error": last_error or "RDAP query failed across all servers."
+        }).encode("utf-8"))
 
     def format_rdap_response(self, domain, data, available=False):
         """Format RDAP response into a clean structure with dates & registrar."""
