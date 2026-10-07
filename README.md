@@ -2,6 +2,9 @@
 
 A lightweight, zero-dependency domain availability checker with an authoritative RDAP lookup engine.
 
+![Dark Mode](img/dark.png)
+![Light Mode](img/light.png)
+
 ---
 
 ## How It Works
@@ -56,6 +59,7 @@ To stop the server, press `Ctrl + C` in the terminal.
 domain-checker/
 ├── app.py          # Python HTTP server and direct RDAP proxy
 ├── README.md       # Documentation
+├── img/            # Screenshots (dark and light preview)
 └── public/         # Frontend web application
     ├── index.html  # Application layout
     ├── style.css   # Stylesheet (dark default)
