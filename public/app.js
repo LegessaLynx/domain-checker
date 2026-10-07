@@ -14,6 +14,7 @@
     selectedSuffixes: new Set(['app', 'lab', 'labs', 'ai', 'hub', 'ify']),
     customPrefixes: new Set(),
     customSuffixes: new Set(),
+    pendingHacks: [],
     results: new Map(), // domain -> { domain, available, expirationDate, registrationDate, registrar, statusFlags, error, starred }
     favorites: new Set(JSON.parse(localStorage.getItem('domain_checker_favs') || '[]')),
     activeFilter: 'all',
@@ -107,6 +108,7 @@
     modalMessage: document.getElementById('modalMessage'),
     modalHacksList: document.getElementById('modalHacksList'),
     modalOkBtn: document.getElementById('modalOkBtn'),
+    modalAddHacksBtn: document.getElementById('modalAddHacksBtn'),
     modalCloseXBtn: document.getElementById('modalCloseXBtn'),
     // Prefix & Suffix Modal
     affixesModalBackdrop: document.getElementById('affixesModalBackdrop'),
@@ -257,7 +259,7 @@
   }
 
   // --- IN-PAGE MODAL DIALOG FOR DOMAIN HACKS ---
-  function showModal(title, message, hackItems = []) {
+  function showModal(title, message, hackItems = [], showAddBtn = false) {
     dom.modalTitle.textContent = title;
     dom.modalMessage.textContent = message;
     dom.modalHacksList.innerHTML = '';
@@ -274,6 +276,10 @@
       dom.modalHacksList.style.display = 'none';
     }
 
+    if (dom.modalAddHacksBtn) {
+      dom.modalAddHacksBtn.style.display = showAddBtn ? 'inline-block' : 'none';
+    }
+
     dom.modalBackdrop.style.display = 'flex';
   }
 
@@ -285,17 +291,18 @@
   function generateDomainHacks() {
     const rawTokens = dom.domainInput.value.replace(/[,;\t\r\n]+/g, ' ').split(/\s+/).filter(Boolean);
     if (rawTokens.length === 0) {
+      state.pendingHacks = [];
       showModal(
         'Domain Hacks Generator',
-        'Enter keywords (e.g. "radio", "focus", "studio", "delight", "spotify") in the box and click Domain Hacks to discover clever TLD combinations.',
-        []
+        'Enter keywords (e.g. "radio", "focus", "studio", "spotify") in the box and click Domain Hacks to discover clever TLD combinations.',
+        [],
+        false
       );
       return;
     }
 
     const sortedTlds = [...HACK_TLDS].sort((a, b) => b.length - a.length);
     const hacksFound = [];
-    const currentInputLines = dom.domainInput.value.split('\n').map(l => l.trim()).filter(Boolean);
     const existingTokens = new Set(dom.domainInput.value.replace(/[,;\t\r\n]+/g, ' ').split(/\s+/).filter(Boolean));
 
     rawTokens.forEach(token => {
@@ -320,22 +327,37 @@
     });
 
     if (hacksFound.length > 0) {
-      const updatedValue = currentInputLines.concat(hacksFound).join('\n');
-      dom.domainInput.value = updatedValue;
-      updateInputCalculations();
-
+      state.pendingHacks = hacksFound;
       showModal(
-        'Domain Hacks Found & Added',
-        `Generated ${hacksFound.length} creative domain hack(s) and added directly to your check list:`,
-        hacksFound
+        'Domain Hacks Found',
+        `Found ${hacksFound.length} creative domain hack(s):`,
+        hacksFound,
+        true
       );
     } else {
+      state.pendingHacks = [];
       showModal(
         'No Domain Hacks Found',
-        'No word endings matched our 120+ supported TLDs for your current keywords. Try words like "radio", "portfolio", "delight", "focus", "creative", "delicious".',
-        []
+        'No word endings matched our 120+ supported TLDs for your current keywords. Try words like "radio", "portfolio", "focus", "creative", "delicious".',
+        [],
+        false
       );
     }
+  }
+
+  function addPendingHacksToSearch() {
+    if (state.pendingHacks && state.pendingHacks.length > 0) {
+      const currentLines = dom.domainInput.value.split('\n').map(l => l.trim()).filter(Boolean);
+      const existingTokens = new Set(dom.domainInput.value.replace(/[,;\t\r\n]+/g, ' ').split(/\s+/).filter(Boolean));
+      const toAdd = state.pendingHacks.filter(h => !existingTokens.has(h));
+
+      if (toAdd.length > 0) {
+        dom.domainInput.value = currentLines.concat(toAdd).join('\n');
+        updateInputCalculations();
+      }
+    }
+    state.pendingHacks = [];
+    hideModal();
   }
 
   // --- PREFIX & SUFFIX NAME GENERATOR ---
@@ -927,8 +949,9 @@
     // Domain Hacks Button
     dom.domainHacksBtn.addEventListener('click', generateDomainHacks);
 
-    // Domain Hacks Modal OK & Close Button & Backdrop click
+    // Domain Hacks Modal OK, Add & Close Button & Backdrop click
     dom.modalOkBtn.addEventListener('click', hideModal);
+    if (dom.modalAddHacksBtn) dom.modalAddHacksBtn.addEventListener('click', addPendingHacksToSearch);
     if (dom.modalCloseXBtn) dom.modalCloseXBtn.addEventListener('click', hideModal);
     dom.modalBackdrop.addEventListener('click', (e) => {
       if (e.target === dom.modalBackdrop) hideModal();
