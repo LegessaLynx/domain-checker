@@ -35,23 +35,23 @@
 }
 
 body:not(.dark-mode) {
-  /* Light Theme */
-  --graphite: #18181b;
-  --canvas-white: #ffffff;
-  --ash: #f1f1f4;
-  --fog: #f8f8fa;
-  --ivory: #ebe6dd;
-  --steel: #3f3f46;
-  --slate: #71717a;
-  --mist: #e4e4e7;
+  /* Warm Canvas Light Theme */
+  --graphite: #1c1b18;
+  --canvas-white: #f7f5ef;
+  --ash: #ece7dc;
+  --fog: #f2eee5;
+  --ivory: #e4ddcf;
+  --steel: #48443e;
+  --slate: #7a756d;
+  --mist: #dbd4c7;
   --ember-orange: #ff5510;
   --brass: #8d6b1d;
 
-  --btn-cta-bg: #18181b;
-  --btn-cta-text: #ffffff;
-  --btn-ghost-border: #18181b;
-  --btn-ghost-text: #18181b;
-  --input-bg: #ffffff;
+  --btn-cta-bg: #1c1b18;
+  --btn-cta-text: #f7f5ef;
+  --btn-ghost-border: #1c1b18;
+  --btn-ghost-text: #1c1b18;
+  --input-bg: #fdfcf9;
 }
 
 /* Reset & Global Canvas */
@@ -76,17 +76,17 @@ body {
 .page-canvas {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px 20px 40px 20px;
+  padding: 12px 20px 30px 20px;
 }
 
 /* ==========================================================================
-   HEADER & NAVIGATION PILL
+   TOP RIGHT THEME TOGGLE (COMPACT HEADER)
    ========================================================================== */
 .header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 .ember-dot {

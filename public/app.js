@@ -69,9 +69,7 @@
     statFav: document.getElementById('statFav'),
     statErr: document.getElementById('statErr'),
     pillError: document.getElementById('pillError'),
-    statsNav: document.getElementById('statsNav'),
     themeToggleBtn: document.getElementById('themeToggleBtn'),
-    themeIcon: document.getElementById('themeIcon'),
     themeLabel: document.getElementById('themeLabel'),
     // Modal
     modalBackdrop: document.getElementById('modalBackdrop'),
@@ -98,11 +96,9 @@
   function applyTheme(theme) {
     if (theme === 'dark') {
       document.body.classList.add('dark-mode');
-      if (dom.themeIcon) dom.themeIcon.textContent = '☀️';
       if (dom.themeLabel) dom.themeLabel.textContent = 'Light';
     } else {
       document.body.classList.remove('dark-mode');
-      if (dom.themeIcon) dom.themeIcon.textContent = '🌙';
       if (dom.themeLabel) dom.themeLabel.textContent = 'Dark';
     }
   }
@@ -167,7 +163,6 @@
     dom.inputStats.textContent = statsDesc.join(' + ');
     dom.totalCheckCount.textContent = totalCombos;
     dom.startBtn.disabled = totalCombos === 0 || state.isRunning;
-    dom.statsNav.textContent = `${state.results.size} records`;
   }
 
   // --- TLD MANAGEMENT ---
@@ -646,7 +641,6 @@
     dom.statTaken.textContent = takenCount;
     dom.statFav.textContent = favCount;
     dom.statErr.textContent = errCount;
-    dom.statsNav.textContent = `${state.results.size} records`;
 
     dom.pillError.style.display = errCount > 0 ? 'inline-block' : 'none';
   }
