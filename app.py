@@ -35,6 +35,45 @@ def find_available_port(start_port=DEFAULT_PORT, max_attempts=20):
     return start_port
 
 
+DIRECT_RDAP_SERVERS = {
+    # Verisign (.com, .net, .cc, .tv)
+    "com": "https://rdap.verisign.com/com/v1/domain/",
+    "net": "https://rdap.verisign.com/net/v1/domain/",
+    "cc": "https://rdap.verisign.com/cc/v1/domain/",
+    "tv": "https://rdap.verisign.com/tv/v1/domain/",
+    # Google Registry (.dev, .app, .page)
+    "dev": "https://pubapi.registry.google/rdap/domain/",
+    "app": "https://pubapi.registry.google/rdap/domain/",
+    "page": "https://pubapi.registry.google/rdap/domain/",
+    "how": "https://pubapi.registry.google/rdap/domain/",
+    # PIR (.org)
+    "org": "https://rdap.publicinterestregistry.org/rdap/domain/",
+    # CentralNic (.xyz)
+    "xyz": "https://rdap.centralnic.com/xyz/domain/",
+    # Radix (.tech, .online, .site, .store, .space, .fun, .host, .website)
+    "tech": "https://rdap.radix.host/rdap/domain/",
+    "online": "https://rdap.radix.host/rdap/domain/",
+    "site": "https://rdap.radix.host/rdap/domain/",
+    "store": "https://rdap.radix.host/rdap/domain/",
+    "space": "https://rdap.radix.host/rdap/domain/",
+    "fun": "https://rdap.radix.host/rdap/domain/",
+    "host": "https://rdap.radix.host/rdap/domain/",
+    "website": "https://rdap.radix.host/rdap/domain/",
+    # Identity Digital (.io, .ai, .sh, .ac, .agency, .cloud, .info)
+    "io": "https://rdap.identitydigital.services/rdap/domain/",
+    "ai": "https://rdap.identitydigital.services/rdap/domain/",
+    "sh": "https://rdap.identitydigital.services/rdap/domain/",
+    "ac": "https://rdap.identitydigital.services/rdap/domain/",
+    "agency": "https://rdap.identitydigital.services/rdap/domain/",
+    "cloud": "https://rdap.identitydigital.services/rdap/domain/",
+    "info": "https://rdap.identitydigital.services/rdap/domain/",
+    # ccTLDs
+    "co": "https://rdap.nic.co/domain/",
+    "me": "https://rdap.nic.me/domain/",
+    "biz": "https://rdap.nic.biz/domain/",
+}
+
+
 class DomainCheckerHandler(http.server.SimpleHTTPRequestHandler):
     """Custom HTTP handler serving the web UI and providing an RDAP proxy."""
 
@@ -80,7 +119,9 @@ class DomainCheckerHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Invalid or missing domain parameter."}).encode("utf-8"))
             return
 
-        rdap_url = f"https://rdap.org/domain/{urllib.parse.quote(domain)}"
+        tld = domain.split(".")[-1]
+        base_endpoint = DIRECT_RDAP_SERVERS.get(tld, "https://rdap.org/domain/")
+        rdap_url = f"{base_endpoint}{urllib.parse.quote(domain)}"
         headers = {
             "User-Agent": "DomainCheckerApp/1.0 (https://github.com/domain-checker)",
             "Accept": "application/rdap+json, application/json"

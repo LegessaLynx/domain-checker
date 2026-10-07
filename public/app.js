@@ -21,9 +21,9 @@
     totalTasks: 0,
     completedTasks: 0,
     speedConfig: {
-      fast: { delay: 150, concurrency: 3 },
-      balanced: { delay: 350, concurrency: 2 },
-      safe: { delay: 800, concurrency: 1 }
+      fast: { delay: 25, concurrency: 10 },
+      balanced: { delay: 60, concurrency: 6 },
+      safe: { delay: 200, concurrency: 3 }
     }
   };
 
