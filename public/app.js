@@ -60,7 +60,7 @@
     emptyState: document.getElementById('emptyState'),
     searchFilter: document.getElementById('searchFilter'),
     exportJsonBtn: document.getElementById('exportJsonBtn'),
-    exportCsvBtn: document.getElementById('exportCsvBtn'),
+    exportTxtBtn: document.getElementById('exportTxtBtn'),
     copyAvailBtn: document.getElementById('copyAvailBtn'),
     clearResultsBtn: document.getElementById('clearResultsBtn'),
     statAll: document.getElementById('statAll'),
@@ -652,37 +652,31 @@
     filterAllCards();
   }
 
-  // --- EXPORTS ---
-  function exportJson() {
-    const data = Array.from(state.results.values());
-    if (data.length === 0) {
-      showModal('No Records', 'No domain inspection records have been logged yet.');
-      return;
-    }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    downloadBlob(blob, `domain_check_results_${Date.now()}.json`);
+  // --- EXPORTS (AVAILABLE DOMAINS) ---
+  function getAvailableDomainsList() {
+    return Array.from(state.results.values())
+      .filter(d => d.available === true)
+      .map(d => d.domain);
   }
 
-  function exportCsv() {
-    const data = Array.from(state.results.values());
-    if (data.length === 0) {
-      showModal('No Records', 'No domain inspection records have been logged yet.');
+  function exportJson() {
+    const available = getAvailableDomainsList();
+    if (available.length === 0) {
+      showModal('No Available Domains', 'No available domains found to export.');
       return;
     }
+    const blob = new Blob([JSON.stringify(available, null, 2)], { type: 'application/json' });
+    downloadBlob(blob, `available_domains_${Date.now()}.json`);
+  }
 
-    const headers = ['Domain', 'Status', 'Expiration Date', 'Registrar', 'Registration Date', 'Bookmarked'];
-    const rows = data.map(d => [
-      `"${d.domain}"`,
-      `"${d.available === true ? 'Available' : d.available === false ? 'Taken' : 'Error'}"`,
-      `"${d.expirationDate || ''}"`,
-      `"${(d.registrar || '').replace(/"/g, '""')}"`,
-      `"${d.registrationDate || ''}"`,
-      `"${d.starred ? 'Yes' : 'No'}"`
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    downloadBlob(blob, `domain_check_results_${Date.now()}.csv`);
+  function exportTxt() {
+    const available = getAvailableDomainsList();
+    if (available.length === 0) {
+      showModal('No Available Domains', 'No available domains found to export.');
+      return;
+    }
+    const blob = new Blob([available.join('\n')], { type: 'text/plain;charset=utf-8;' });
+    downloadBlob(blob, `available_domains_${Date.now()}.txt`);
   }
 
   function copyAvailableDomains() {
@@ -848,7 +842,7 @@
     });
 
     dom.exportJsonBtn.addEventListener('click', exportJson);
-    dom.exportCsvBtn.addEventListener('click', exportCsv);
+    dom.exportTxtBtn.addEventListener('click', exportTxt);
     dom.copyAvailBtn.addEventListener('click', copyAvailableDomains);
 
     dom.clearResultsBtn.addEventListener('click', () => {
