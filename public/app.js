@@ -10,8 +10,8 @@
     // Default TLDs: .com, .io, .co, .xyz, .dev, .app, .tech
     selectedTlds: new Set(['.com', '.io', '.co', '.xyz', '.dev', '.app', '.tech']),
     customTlds: new Set(),
-    selectedPrefixes: new Set(['get', 'try', 'use']),
-    selectedSuffixes: new Set(['hq', 'app', 'lab', 'labs', 'ai']),
+    selectedPrefixes: new Set(['get', 'try', 'use', 'join', 'open']),
+    selectedSuffixes: new Set(['app', 'lab', 'labs', 'ai', 'hub', 'ify']),
     customPrefixes: new Set(),
     customSuffixes: new Set(),
     results: new Map(), // domain -> { domain, available, expirationDate, registrationDate, registrar, statusFlags, error, starred }
@@ -66,31 +66,11 @@
     'co', 'ly', 'ify', 'now', 'pro', 'one', 'x', 'direct', 'online', 'wave'
   ];
 
-  const AFFIX_PRESETS = {
-    saas: {
-      prefixes: ['get', 'try', 'use', 'join', 'open', 'pro'],
-      suffixes: ['hq', 'app', 'lab', 'labs', 'ai', 'hub', 'flow', 'stack']
-    },
-    tech: {
-      prefixes: ['open', 'neo', 'meta', 'smart', 'next'],
-      suffixes: ['dev', 'tech', 'io', 'base', 'stack', 'box', 'grid', 'desk', 'vault']
-    },
-    action: {
-      prefixes: ['start', 'launch', 'run', 'go', 'tap', 'click', 'buy'],
-      suffixes: ['now', 'flow', 'sync', 'pulse', 'craft', 'link', 'direct']
-    },
-    brand: {
-      prefixes: ['the', 'my', 'your', 'hey', 'we', 'all', 'pure', 'real'],
-      suffixes: ['club', 'space', 'house', 'nest', 'crew', 'group', 'zone', 'co', 'one']
-    }
-  };
-
   // --- DOM ELEMENTS ---
   const dom = {
     domainInput: document.getElementById('domainInput'),
     inputStats: document.getElementById('inputStats'),
     totalCheckCount: document.getElementById('totalCheckCount'),
-    clearInputBtn: document.getElementById('clearInputBtn'),
     domainHacksBtn: document.getElementById('domainHacksBtn'),
     affixesBtn: document.getElementById('affixesBtn'),
     selectAllTldsBtn: document.getElementById('selectAllTldsBtn'),
@@ -414,12 +394,6 @@
     } else if (presetName === 'none') {
       state.selectedPrefixes.clear();
       state.selectedSuffixes.clear();
-    } else if (AFFIX_PRESETS[presetName]) {
-      const preset = AFFIX_PRESETS[presetName];
-      state.selectedPrefixes.clear();
-      state.selectedSuffixes.clear();
-      preset.prefixes.forEach(p => state.selectedPrefixes.add(p));
-      preset.suffixes.forEach(s => state.selectedSuffixes.add(s));
     }
     renderAffixChips();
   }
@@ -948,12 +922,6 @@
         e.preventDefault();
         if (!dom.startBtn.disabled) startCheckProcess();
       }
-    });
-
-    // Clear input
-    dom.clearInputBtn.addEventListener('click', () => {
-      dom.domainInput.value = '';
-      updateInputCalculations();
     });
 
     // Domain Hacks Button
