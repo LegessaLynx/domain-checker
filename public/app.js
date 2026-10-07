@@ -40,7 +40,6 @@
     domainInput: document.getElementById('domainInput'),
     inputStats: document.getElementById('inputStats'),
     totalCheckCount: document.getElementById('totalCheckCount'),
-    sampleDataBtn: document.getElementById('sampleDataBtn'),
     clearInputBtn: document.getElementById('clearInputBtn'),
     domainHacksBtn: document.getElementById('domainHacksBtn'),
     selectAllTldsBtn: document.getElementById('selectAllTldsBtn'),
@@ -734,12 +733,6 @@
         e.preventDefault();
         if (!dom.startBtn.disabled) startCheckProcess();
       }
-    });
-
-    // Sample data
-    dom.sampleDataBtn.addEventListener('click', () => {
-      dom.domainInput.value = 'nova, horizon, fluxapp, hypershift, omni';
-      updateInputCalculations();
     });
 
     // Clear input
