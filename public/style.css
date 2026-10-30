@@ -1026,3 +1026,193 @@ textarea:focus, input[type="text"]:focus {
   padding: 9px 20px;
   font-size: 13px;
 }
+
+/* ==========================================================================
+   MODE TABS & ALARMS
+   ========================================================================== */
+.mode-nav {
+  margin-bottom: 16px;
+}
+
+body:not([data-mode="alarm"]) .alarm-only,
+body:not([data-mode="discover"]) .discover-only,
+body[data-mode="alarm"] .check-only,
+body[data-mode="discover"] .check-only,
+body[data-mode="discover"] .input-panel {
+  display: none !important;
+}
+
+.alarm-status {
+  margin-bottom: 12px;
+}
+
+.alarm-status.blocked {
+  color: var(--brass);
+}
+
+.logic-steps {
+  list-style: none;
+  counter-reset: logic;
+  margin-bottom: 18px;
+}
+
+.logic-step {
+  counter-increment: logic;
+  position: relative;
+  padding: 0 0 14px 30px;
+}
+
+.logic-step::before {
+  content: counter(logic);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--ember-orange);
+  color: #0e0e10;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logic-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.logic-desc {
+  color: var(--steel);
+  font-size: 12.5px;
+}
+
+.logic-live {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--mist);
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.logic-live .free {
+  color: var(--ember-orange);
+}
+
+.record-card.live-check {
+  padding: 8px 14px;
+}
+
+.record-card.live-check .domain-heading {
+  font-size: 14px;
+}
+
+.record-card.live-check.free .domain-heading {
+  color: var(--ember-orange);
+}
+
+.logic-sections {
+  list-style: none;
+  margin-top: 6px;
+}
+
+.logic-sections li {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  color: var(--steel);
+}
+
+.logic-sections li.active {
+  background-color: var(--input-bg);
+  color: var(--graphite);
+  font-weight: 700;
+}
+
+/* Let long tab bars and cards wrap instead of widening the page */
+.main-layout > * {
+  min-width: 0;
+}
+
+.filter-pill-nav {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.record-right,
+.buy-deck {
+  flex-wrap: wrap;
+}
+
+.editorial-badge {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .record-card {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .filter-pill-nav {
+    border-radius: 16px;
+  }
+}
+
+.add-words-front {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--steel);
+  cursor: pointer;
+}
+
+.added-words {
+  list-style: none;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.added-words li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.added-words .word-list-name {
+  flex: 1;
+  color: var(--slate);
+  font-weight: 500;
+}
+
+.add-words input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.add-words select {
+  flex: none;
+  width: 112px;
+  background-color: var(--input-bg);
+  color: var(--graphite);
+}
+
+.add-words .btn-ghost-sm {
+  flex: none;
+  white-space: nowrap;
+}

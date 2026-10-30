@@ -17,19 +17,30 @@
   </button>
 
   <div class="page-canvas">
+    <!-- Mode Tabs -->
+    <nav class="mode-nav">
+      <div class="filter-pill-nav">
+        <button type="button" class="filter-tab mode-tab active" data-mode="check">Checker</button>
+        <button type="button" class="filter-tab mode-tab" data-mode="alarm">Alarms <span class="tab-count" id="alarmTabCount">0</span></button>
+        <button type="button" class="filter-tab mode-tab" data-mode="discover">Discover <span class="tab-count" id="discoverTabCount">0</span></button>
+      </div>
+    </nav>
+
     <!-- Main Content Workspace -->
     <main class="main-layout">
       
       <!-- Input & Configuration Card -->
-      <aside class="control-panel">
+      <aside class="control-panel input-panel">
         <div class="asymmetric-card config-surface">
           
           <div class="panel-header">
-            <h2 class="panel-heading">Domains to Check</h2>
+            <h2 class="panel-heading"><span class="check-only">Domains to Check</span><span class="alarm-only">Domains to Watch</span></h2>
             <div class="quick-actions">
               <button type="button" id="domainHacksBtn" class="text-link" title="Generate creative split domain hacks">Domain Hacks</button>
               <span class="sep">/</span>
               <button type="button" id="affixesBtn" class="text-link" title="Generate prefix & suffix name variations">Prefix & Suffix</button>
+              <span class="sep">/</span>
+              <button type="button" id="wordMixBtn" class="text-link" title="Add random two-word names like bluefox">Word Mix</button>
             </div>
           </div>
 
@@ -106,7 +117,7 @@
           </div>
 
           <!-- Rate Limiting Presets -->
-          <div class="form-block">
+          <div class="form-block check-only">
             <label class="field-label">Request Speed & Safe Mode</label>
             <div class="rate-presets">
               <label class="preset-card">
@@ -134,7 +145,14 @@
           </div>
 
           <!-- Action Stack -->
-          <div class="action-stack">
+          <div class="action-stack alarm-only">
+            <button type="button" id="addAlarmsBtn" class="btn-primary-cta">
+              Add to Alarms (<span id="alarmAddCount">0</span> Total)
+            </button>
+            <div class="field-meta" id="alarmAddStatus">Checked slowly in the background while this app is running.</div>
+          </div>
+
+          <div class="action-stack check-only">
             <button type="button" id="startBtn" class="btn-primary-cta">
               Check Domains (<span id="totalCheckCount">0</span> Total)
             </button>
@@ -145,6 +163,7 @@
           </div>
 
           <!-- Progress Ribbon -->
+          <div class="check-only">
           <div class="progress-ribbon" id="progressSection" style="display: none;">
             <div class="progress-meta">
               <span id="progressStatusText">Checking domains...</span>
@@ -154,13 +173,82 @@
               <div class="progress-fill" id="progressBarFill"></div>
             </div>
           </div>
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- Discover: how the scanner thinks, live -->
+      <aside class="control-panel discover-only">
+        <div class="asymmetric-card config-surface">
+          <div class="panel-header">
+            <h2 class="panel-heading">How It Works</h2>
+            <button type="button" id="scanToggleBtn" class="btn-ghost-sm">Start</button>
+          </div>
+
+          <div class="form-block add-words">
+            <label for="addWordsInput" class="field-label">Add Words</label>
+            <div class="custom-input-wrap">
+              <input type="text" id="addWordsInput" placeholder="terraform, argo, nebula...">
+              <select id="addWordsList" class="filter-search-box" aria-label="Word list">
+                <option value="tech_first">Tech start</option>
+                <option value="tech_second">Tech end</option>
+                <option value="elegant">Elegant</option>
+                <option value="classic">Classic</option>
+                <option value="first">Adjective</option>
+                <option value="second">Thing</option>
+                <option value="single">Single word</option>
+              </select>
+              <button type="button" id="addWordsBtn" class="btn-ghost-sm">+ Add</button>
+            </div>
+            <label class="add-words-front"><input type="checkbox" id="addWordsFront" checked> Scan these first</label>
+            <div class="field-meta" id="addWordsStatus">Words that are already listed move to the front too.</div>
+            <ul class="added-words" id="addedWords"></ul>
+          </div>
+
+          <ol class="logic-steps">
+            <li class="logic-step">
+              <div class="logic-title">Word lists</div>
+              <p class="logic-desc" id="logicWordsDesc"></p>
+              <ul class="logic-sections" id="logicSections"></ul>
+            </li>
+            <li class="logic-step">
+              <div class="logic-title">Order</div>
+              <p class="logic-desc">Every name has its own row in the database. Names you sent to the front go first, then never-checked names, section by section with the lowest score first. After that, the one checked longest ago is next.</p>
+              <div class="logic-live" id="logicPair">Waiting to start</div>
+            </li>
+            <li class="logic-step">
+              <div class="logic-title">DNS check</div>
+              <p class="logic-desc" id="logicDnsDesc"></p>
+              <div class="logic-live" id="logicDns">No check yet</div>
+            </li>
+            <li class="logic-step">
+              <div class="logic-title">Score</div>
+              <p class="logic-desc" id="logicScoreDesc"></p>
+            </li>
+            <li class="logic-step">
+              <div class="logic-title">Verify</div>
+              <p class="logic-desc">Names leave .com's DNS weeks before they drop, so a name can be missing from DNS and still be registered. Press Verify to ask the registry before you buy.</p>
+            </li>
+          </ol>
+
+          <div class="progress-ribbon">
+            <div class="progress-meta">
+              <span id="scanProgressText">Round 1</span>
+              <span id="scanProgressPercent" class="mono-num">0%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="scanProgressFill"></div>
+            </div>
+          </div>
+          <div class="field-meta" id="scanHealth"></div>
 
         </div>
       </aside>
 
       <!-- Results Observatory -->
       <section class="results-observatory">
-        <div class="observatory-card">
+        <div class="observatory-card check-only">
           
           <!-- Filter and Utility Bar -->
           <div class="observatory-toolbar">
@@ -190,6 +278,45 @@
             </div>
           </div>
 
+        </div>
+
+        <!-- Discover Results -->
+        <div class="observatory-card discover-only">
+          <div class="observatory-toolbar">
+            <div class="filter-pill-nav">
+              <button type="button" class="filter-tab discover-view active" data-discover-view="found">Best Names <span class="tab-count" id="discoverFoundCount">0</span></button>
+              <button type="button" class="filter-tab discover-view" data-discover-view="classic">Classic <span class="tab-count" id="discoverClassicCount">0</span></button>
+              <button type="button" class="filter-tab discover-view" data-discover-view="tech">Tech <span class="tab-count" id="discoverTechCount">0</span></button>
+              <button type="button" class="filter-tab discover-view" data-discover-view="elegant">Elegant <span class="tab-count" id="discoverElegantCount">0</span></button>
+              <button type="button" class="filter-tab discover-view" data-discover-view="easy">Easy <span class="tab-count" id="discoverEasyCount">0</span></button>
+              <button type="button" class="filter-tab discover-view" data-discover-view="single">Single Words <span class="tab-count" id="discoverSingleCount">0</span></button>
+              <button type="button" class="filter-tab discover-view" data-discover-view="live">Live Checks</button>
+            </div>
+          </div>
+          <div class="field-meta alarm-status" id="discoverStatus"></div>
+          <div class="records-feed" id="discoverContainer"></div>
+          <button type="button" id="discoverMoreBtn" class="btn-ghost-sm" style="display: none;">Show More</button>
+        </div>
+
+        <!-- Alarm Watch List -->
+        <div class="observatory-card alarm-only">
+          <div class="observatory-toolbar">
+            <div class="filter-pill-nav">
+              <button type="button" class="filter-tab alarm-filter active" data-alarm-filter="all">All <span class="tab-count" id="alarmStatAll">0</span></button>
+              <button type="button" class="filter-tab alarm-filter" data-alarm-filter="available">Available <span class="tab-count" id="alarmStatAvail">0</span></button>
+              <button type="button" class="filter-tab alarm-filter" data-alarm-filter="dropping">Dropping <span class="tab-count" id="alarmStatDropping">0</span></button>
+              <button type="button" class="filter-tab alarm-filter" data-alarm-filter="registered">Registered <span class="tab-count" id="alarmStatRegistered">0</span></button>
+            </div>
+
+            <div class="observatory-actions">
+              <input type="text" id="alarmSearch" class="filter-search-box" placeholder="Filter alarms...">
+              <button type="button" id="clearAlarmsBtn" class="btn-ghost-sm" title="Remove every domain from the watch list">Clear</button>
+            </div>
+          </div>
+
+          <div class="field-meta alarm-status" id="alarmStatus"></div>
+
+          <div class="records-feed" id="alarmContainer"></div>
         </div>
       </section>
 

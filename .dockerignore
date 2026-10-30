@@ -1,0 +1,7 @@
+.git
+.gitignore
+__pycache__
+alarms.db*
+data
+img
+README.md

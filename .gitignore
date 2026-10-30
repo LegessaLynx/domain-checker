@@ -17,3 +17,7 @@ desktop.ini
 
 # Logs and exports
 *.log
+
+# Alarm watch list
+alarms.db*
+data/

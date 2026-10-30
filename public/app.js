@@ -3,6 +3,8 @@
 (function () {
   'use strict';
 
+  const SCAN_PAGE_SIZE = 200;
+
   // --- STATE MANAGEMENT ---
   const state = {
     baseKeywords: [],
@@ -15,6 +17,16 @@
     customPrefixes: new Set(),
     customSuffixes: new Set(),
     pendingHacks: [],
+    alarms: [],
+    alarmStatus: { blockedUntil: 0, delay: 0 },
+    alarmFilter: 'all',
+    alarmQuery: '',
+    discoverView: 'found',
+    discoverLimit: SCAN_PAGE_SIZE,
+    discoverNotice: '',
+    discoverNoticeUntil: 0,
+    scan: null,
+    words: null,
     results: new Map(), // domain -> { domain, available, expirationDate, registrationDate, registrar, statusFlags, error, starred }
     favorites: new Set(JSON.parse(localStorage.getItem('domain_checker_favs') || '[]')),
     activeFilter: 'all',
@@ -67,6 +79,8 @@
     'co', 'ly', 'ify', 'now', 'pro', 'one', 'x', 'direct', 'online', 'wave'
   ];
 
+  const WORD_MIX_COUNT = 50;
+
   // --- DOM ELEMENTS ---
   const dom = {
     domainInput: document.getElementById('domainInput'),
@@ -74,6 +88,7 @@
     totalCheckCount: document.getElementById('totalCheckCount'),
     domainHacksBtn: document.getElementById('domainHacksBtn'),
     affixesBtn: document.getElementById('affixesBtn'),
+    wordMixBtn: document.getElementById('wordMixBtn'),
     selectAllTldsBtn: document.getElementById('selectAllTldsBtn'),
     clearAllTldsBtn: document.getElementById('clearAllTldsBtn'),
     customTldInput: document.getElementById('customTldInput'),
@@ -122,7 +137,48 @@
     addCustomSuffixBtn: document.getElementById('addCustomSuffixBtn'),
     affixLiveSummary: document.getElementById('affixLiveSummary'),
     cancelAffixesBtn: document.getElementById('cancelAffixesBtn'),
-    applyAffixesBtn: document.getElementById('applyAffixesBtn')
+    applyAffixesBtn: document.getElementById('applyAffixesBtn'),
+    // Alarms
+    addAlarmsBtn: document.getElementById('addAlarmsBtn'),
+    alarmAddCount: document.getElementById('alarmAddCount'),
+    alarmAddStatus: document.getElementById('alarmAddStatus'),
+    alarmTabCount: document.getElementById('alarmTabCount'),
+    alarmStatAll: document.getElementById('alarmStatAll'),
+    alarmStatAvail: document.getElementById('alarmStatAvail'),
+    alarmStatDropping: document.getElementById('alarmStatDropping'),
+    alarmStatRegistered: document.getElementById('alarmStatRegistered'),
+    alarmSearch: document.getElementById('alarmSearch'),
+    clearAlarmsBtn: document.getElementById('clearAlarmsBtn'),
+    alarmStatus: document.getElementById('alarmStatus'),
+    alarmContainer: document.getElementById('alarmContainer'),
+    // Discover
+    discoverTabCount: document.getElementById('discoverTabCount'),
+    discoverFoundCount: document.getElementById('discoverFoundCount'),
+    discoverSingleCount: document.getElementById('discoverSingleCount'),
+    discoverTechCount: document.getElementById('discoverTechCount'),
+    discoverClassicCount: document.getElementById('discoverClassicCount'),
+    discoverElegantCount: document.getElementById('discoverElegantCount'),
+    discoverEasyCount: document.getElementById('discoverEasyCount'),
+    discoverStatus: document.getElementById('discoverStatus'),
+    discoverContainer: document.getElementById('discoverContainer'),
+    scanToggleBtn: document.getElementById('scanToggleBtn'),
+    scanProgressText: document.getElementById('scanProgressText'),
+    scanProgressPercent: document.getElementById('scanProgressPercent'),
+    scanProgressFill: document.getElementById('scanProgressFill'),
+    scanHealth: document.getElementById('scanHealth'),
+    addWordsInput: document.getElementById('addWordsInput'),
+    addWordsList: document.getElementById('addWordsList'),
+    addWordsBtn: document.getElementById('addWordsBtn'),
+    addWordsStatus: document.getElementById('addWordsStatus'),
+    addWordsFront: document.getElementById('addWordsFront'),
+    addedWords: document.getElementById('addedWords'),
+    discoverMoreBtn: document.getElementById('discoverMoreBtn'),
+    logicWordsDesc: document.getElementById('logicWordsDesc'),
+    logicSections: document.getElementById('logicSections'),
+    logicPair: document.getElementById('logicPair'),
+    logicDns: document.getElementById('logicDns'),
+    logicDnsDesc: document.getElementById('logicDnsDesc'),
+    logicScoreDesc: document.getElementById('logicScoreDesc')
   };
 
   // --- INITIALIZATION ---
@@ -132,6 +188,12 @@
     syncTldCheckboxes();
     renderAffixChips();
     updateInputCalculations();
+    loadAlarms();
+    setInterval(loadAlarms, ALARM_POLL_MS);
+    loadScan();
+    setInterval(() => {
+      if (document.body.getAttribute('data-mode') === 'discover') loadScan();
+    }, SCAN_POLL_MS);
   }
 
   // --- THEME MANAGEMENT ---
@@ -210,6 +272,8 @@
     dom.inputStats.textContent = statsDesc.join(' + ');
     dom.totalCheckCount.textContent = totalCombos;
     dom.startBtn.disabled = totalCombos === 0 || state.isRunning;
+    dom.alarmAddCount.textContent = totalCombos;
+    dom.addAlarmsBtn.disabled = totalCombos === 0;
   }
 
   // --- TLD MANAGEMENT ---
@@ -500,6 +564,33 @@
     hideAffixesModal();
   }
 
+  // --- WORD MIX GENERATOR ---
+  async function loadWords() {
+    if (!state.words) {
+      const res = await fetch('/api/words');
+      state.words = await res.json();
+    }
+    return state.words;
+  }
+
+  async function addWordMixToInput() {
+    const { first: firstWords, second: secondWords } = await loadWords();
+    const pick = (list) => list[Math.floor(Math.random() * list.length)];
+    const names = new Set();
+    const existing = new Set(parseInputs(dom.domainInput.value).baseKeywords);
+
+    while (names.size < WORD_MIX_COUNT) {
+      const first = pick(firstWords);
+      const second = pick(secondWords);
+      const name = `${first}${second}`;
+      if (first !== second && !existing.has(name)) names.add(name);
+    }
+
+    const current = dom.domainInput.value.trim();
+    dom.domainInput.value = [current, ...names].filter(Boolean).join('\n');
+    updateInputCalculations();
+  }
+
   // --- RDAP QUERY ENGINE ---
   async function queryRdap(domain) {
     const proxyUrl = `/api/rdap?domain=${encodeURIComponent(domain)}`;
@@ -518,7 +609,8 @@
           expirationDate: data.expiration_date,
           registrationDate: data.registration_date,
           registrar: data.registrar,
-          statusFlags: data.status_flags || []
+          statusFlags: data.status_flags || [],
+          error: data.error
         };
       }
     } catch (e) {
@@ -528,7 +620,8 @@
     try {
       const directUrl = `https://rdap.org/domain/${encodeURIComponent(domain)}`;
       const res = await fetch(directUrl);
-      if (res.status === 404) {
+      // rdap.org answers 404 itself for TLDs it has no server for
+      if (res.status === 404 && new URL(res.url).hostname !== 'rdap.org') {
         return { status: 'success', domain, available: true };
       }
       if (res.status === 429) {
@@ -569,15 +662,8 @@
   const retryCounts = new Map(); // domain -> 429 rate limit retries
   const errorRetries = new Map(); // domain -> network/server error retries
 
-  async function startCheckProcess() {
-    const { baseKeywords, specificDomains } = parseInputs(dom.domainInput.value);
-    if (baseKeywords.length === 0 && specificDomains.length === 0) return;
-
-    retryCounts.clear();
-    errorRetries.clear();
-    dom.progressSection.classList.remove('rate-limited');
-
-    const domainsToCheck = [];
+  function buildDomainList(baseKeywords, specificDomains) {
+    const domains = [];
     const seen = new Set();
 
     // 1. Combine base keywords with selected TLDs
@@ -586,7 +672,7 @@
         const d = `${kw}${tld}`;
         if (!seen.has(d)) {
           seen.add(d);
-          domainsToCheck.push(d);
+          domains.push(d);
         }
       });
     });
@@ -595,9 +681,22 @@
     specificDomains.forEach(d => {
       if (!seen.has(d)) {
         seen.add(d);
-        domainsToCheck.push(d);
+        domains.push(d);
       }
     });
+
+    return domains;
+  }
+
+  async function startCheckProcess() {
+    const { baseKeywords, specificDomains } = parseInputs(dom.domainInput.value);
+    if (baseKeywords.length === 0 && specificDomains.length === 0) return;
+
+    retryCounts.clear();
+    errorRetries.clear();
+    dom.progressSection.classList.remove('rate-limited');
+
+    const domainsToCheck = buildDomainList(baseKeywords, specificDomains);
 
     state.queue = [...domainsToCheck];
     state.totalTasks = domainsToCheck.length;
@@ -741,6 +840,16 @@
     }
   }
 
+  function buyLinksHtml(domain) {
+    return `
+        <div class="buy-deck">
+          <a href="https://porkbun.com/checkout/search?q=${encodeURIComponent(domain)}" target="_blank" rel="noopener" class="editorial-link" title="Open on Porkbun">Porkbun</a>
+          <a href="https://www.namecheap.com/domains/registration/results/?domain=${encodeURIComponent(domain)}" target="_blank" rel="noopener" class="editorial-link" title="Open on Namecheap">Namecheap</a>
+          <a href="https://www.cloudflare.com/domains/search?q=${encodeURIComponent(domain)}" target="_blank" rel="noopener" class="editorial-link" title="Open on Cloudflare">Cloudflare</a>
+        </div>
+      `;
+  }
+
   function upsertResultCard(entry) {
     let card = document.getElementById(`card-${entry.domain.replace(/\./g, '_')}`);
     const isAvail = entry.available === true;
@@ -754,13 +863,7 @@
 
     if (isAvail) {
       statusHtml = `<span class="editorial-badge avail"><span class="dot"></span> Available</span>`;
-      actionsHtml = `
-        <div class="buy-deck">
-          <a href="https://porkbun.com/checkout/search?q=${encodeURIComponent(entry.domain)}" target="_blank" rel="noopener" class="editorial-link" title="Open on Porkbun">Porkbun</a>
-          <a href="https://www.namecheap.com/domains/registration/results/?domain=${encodeURIComponent(entry.domain)}" target="_blank" rel="noopener" class="editorial-link" title="Open on Namecheap">Namecheap</a>
-          <a href="https://www.cloudflare.com/domains/search?q=${encodeURIComponent(entry.domain)}" target="_blank" rel="noopener" class="editorial-link" title="Open on Cloudflare">Cloudflare</a>
-        </div>
-      `;
+      actionsHtml = buyLinksHtml(entry.domain);
     } else if (isTaken) {
       statusHtml = `<span class="editorial-badge taken"><span class="dot"></span> Taken</span>`;
       let metaTags = [];
@@ -874,6 +977,330 @@
     filterAllCards();
   }
 
+  // --- ALARMS ---
+  const ALARM_POLL_MS = 30000;
+
+  // Phases in display order: what needs attention first
+  const ALARM_PHASES = {
+    available: { label: 'Available', badge: 'avail', group: 'available' },
+    pending_delete: { label: 'Dropping in days', badge: 'error', group: 'dropping' },
+    redemption: { label: 'Redemption', badge: 'error', group: 'dropping' },
+    expired: { label: 'Expired', badge: 'error', group: 'dropping' },
+    registered: { label: 'Registered', badge: 'taken', group: 'registered' },
+    pending: { label: 'Waiting', badge: 'taken', group: 'registered' }
+  };
+  const ALARM_PHASE_ORDER = Object.keys(ALARM_PHASES);
+
+  async function loadAlarms() {
+    try {
+      const res = await fetch('/api/alarms');
+      const data = await res.json();
+      state.alarms = data.alarms;
+      state.alarmStatus = { blockedUntil: data.blocked_until, delay: data.delay };
+      renderAlarms();
+    } catch (e) {
+      dom.alarmStatus.textContent = 'Local server is not responding.';
+    }
+  }
+
+  async function addAlarms() {
+    const { baseKeywords, specificDomains } = parseInputs(dom.domainInput.value);
+    const domains = buildDomainList(baseKeywords, specificDomains);
+    if (domains.length === 0) return;
+
+    try {
+      const res = await fetch('/api/alarms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domains })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      dom.alarmAddStatus.textContent = `${data.added} added, ${domains.length - data.added} already watched or invalid.`;
+      dom.domainInput.value = '';
+      updateInputCalculations();
+      await loadAlarms();
+    } catch (e) {
+      dom.alarmAddStatus.textContent = 'Could not save the list. Is the app still running?';
+    }
+  }
+
+  function renderAlarmCard(alarm) {
+    const phase = ALARM_PHASES[alarm.phase];
+    const isAvail = alarm.phase === 'available';
+    const expiry = formatExpiryDate(alarm.expiration_date);
+    const metaTags = [];
+
+    if (isAvail) {
+      metaTags.push(`<span class="meta-pill expiry-pill">Free since ${formatAlarmTime(alarm.available_since)}</span>`);
+    } else if (expiry) {
+      metaTags.push(`<span class="meta-pill expiry-pill">Expires: ${expiry}</span>`);
+    }
+    if (alarm.last_checked) metaTags.push(`<span class="meta-pill">Checked ${formatAlarmTime(alarm.last_checked)}</span>`);
+    if (alarm.failed) metaTags.push('<span class="meta-pill">Last check failed</span>');
+
+    return `
+      <div class="record-card ${isAvail ? 'available' : 'taken'}">
+        <div class="record-left">
+          <div>
+            <div class="domain-heading">${alarm.domain}</div>
+            <div class="record-meta-line">${metaTags.join('')}</div>
+          </div>
+        </div>
+        <div class="record-right">
+          <span class="editorial-badge ${phase.badge}">${phase.badge === 'error' ? '' : '<span class="dot"></span> '}${phase.label}</span>
+          ${isAvail ? buyLinksHtml(alarm.domain) : ''}
+          <button type="button" class="btn-ghost-sm alarm-remove-btn" data-domain="${alarm.domain}">Remove</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function formatAlarmTime(seconds) {
+    return new Date(seconds * 1000).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  function renderAlarms() {
+    const counts = { available: 0, dropping: 0, registered: 0 };
+    state.alarms.forEach(a => counts[ALARM_PHASES[a.phase].group]++);
+
+    dom.alarmTabCount.textContent = counts.available;
+    dom.alarmStatAll.textContent = state.alarms.length;
+    dom.alarmStatAvail.textContent = counts.available;
+    dom.alarmStatDropping.textContent = counts.dropping;
+    dom.alarmStatRegistered.textContent = counts.registered;
+
+    const { blockedUntil, delay } = state.alarmStatus;
+    const checked = state.alarms.filter(a => a.last_checked).length;
+    const isBlocked = blockedUntil * 1000 > Date.now();
+    dom.alarmStatus.classList.toggle('blocked', isBlocked);
+    dom.alarmStatus.textContent = isBlocked
+      ? `Registry asked us to slow down. Watcher resumes at ${formatAlarmTime(blockedUntil)}.`
+      : `${checked} of ${state.alarms.length} checked so far. One query every ${delay} seconds.`;
+
+    const visible = state.alarms
+      .filter(a => state.alarmFilter === 'all' || ALARM_PHASES[a.phase].group === state.alarmFilter)
+      .filter(a => a.domain.includes(state.alarmQuery))
+      .sort((a, b) => ALARM_PHASE_ORDER.indexOf(a.phase) - ALARM_PHASE_ORDER.indexOf(b.phase));
+
+    dom.alarmContainer.innerHTML = visible.length > 0
+      ? visible.map(renderAlarmCard).join('')
+      : `<div class="empty-state">
+          <div class="empty-glyph">◌</div>
+          <h3 class="empty-title">Nothing here yet</h3>
+          <p class="empty-desc">Enter domains on the left and click <strong>Add to Alarms</strong>.</p>
+        </div>`;
+  }
+
+  function setMode(mode) {
+    document.body.setAttribute('data-mode', mode);
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.getAttribute('data-mode') === mode));
+    if (mode === 'alarm') loadAlarms();
+    if (mode === 'discover') loadScan();
+  }
+
+  // --- DISCOVER ---
+  const SCAN_POLL_MS = 2000;
+  const STALE_SCAN_SECONDS = 60;
+  const SCAN_NOTICE_MS = 10000;
+  const WORD_LIST_LABELS = {
+    tech_first: 'Tech start',
+    tech_second: 'Tech end',
+    elegant: 'Elegant',
+    classic: 'Classic',
+    first: 'Adjective',
+    second: 'Thing',
+    single: 'Single word'
+  };
+
+  async function loadScan() {
+    try {
+      const res = await fetch(`/api/scan?limit=${state.discoverLimit}&kind=${state.discoverView}`);
+      state.scan = await res.json();
+      renderScan();
+    } catch (e) {
+      dom.scanHealth.textContent = 'Local server is not responding.';
+    }
+  }
+
+  function formatDuration(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+    return `${hours}h ${Math.floor(seconds % 3600 / 60)}m`;
+  }
+
+  function renderPairHtml(check) {
+    if (!check.second) {
+      return `${check.first} <span class="mono-num">#${check.first_rank + 1}</span> &rarr; ${check.domain}`;
+    }
+    const score = check.first_rank + check.second_rank;
+    return `${check.first} <span class="mono-num">#${check.first_rank + 1}</span> + ${check.second} <span class="mono-num">#${check.second_rank + 1}</span> = rank sum ${score} &rarr; ${check.domain}`;
+  }
+
+  function renderAnswersHtml(check) {
+    const answers = check.answers.map(a => `${a.resolver}: ${a.answer}`).join(', ');
+    const outcome = { free: 'may be free', registered: 'registered, skipped' }[check.verdict] || 'unclear, will retry';
+    return `${check.domain} &rarr; ${answers} &rarr; <span class="${check.verdict === 'free' ? 'free' : ''}">${outcome}</span>`;
+  }
+
+  function renderDiscoveryCard(item) {
+    const isVerified = item.verdict === 'available';
+    const pills = [
+      `<span class="meta-pill">${item.first_word} #${item.first_rank + 1}${item.second_word ? ` + ${item.second_word} #${item.second_rank + 1}` : ' (single word)'}</span>`,
+      `<span class="meta-pill expiry-pill">Score ${item.score}</span>`
+    ];
+    if (item.penalty > 0) pills.push(`<span class="meta-pill">Penalty +${item.penalty}</span>`);
+
+    return `
+      <div class="record-card ${isVerified ? 'available' : 'taken'}">
+        <div class="record-left">
+          <div>
+            <div class="domain-heading">${item.domain}</div>
+            <div class="record-meta-line">${pills.join('')}</div>
+          </div>
+        </div>
+        <div class="record-right">
+          <span class="editorial-badge ${isVerified ? 'avail' : 'error'}">${isVerified ? '<span class="dot"></span> Verified free' : 'Unverified'}</span>
+          ${isVerified ? buyLinksHtml(item.domain) : `<button type="button" class="btn-ghost-sm discovery-verify-btn" data-domain="${item.domain}">Verify</button>`}
+          <button type="button" class="btn-ghost-sm discovery-hide-btn" data-domain="${item.domain}">Hide</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderLiveCheck(check) {
+    return `
+      <div class="record-card live-check ${check.verdict === 'free' ? 'free' : ''}">
+        <div class="record-left">
+          <div>
+            <div class="domain-heading">${check.domain}</div>
+            <div class="record-meta-line">${renderPairHtml(check)}</div>
+          </div>
+        </div>
+        <div class="record-meta-line">${renderAnswersHtml(check)}</div>
+      </div>
+    `;
+  }
+
+  function renderScan() {
+    const scan = state.scan;
+    const percent = scan.checked / scan.total_names * 100;
+    const remaining = (scan.total_names - scan.checked) * scan.delay;
+    const isFullyChecked = scan.checked === scan.total_names;
+    const activeSection = scan.current ? scan.current.section : null;
+
+    dom.discoverTabCount.textContent = scan.found;
+    dom.discoverFoundCount.textContent = scan.found;
+    dom.discoverSingleCount.textContent = scan.views.single;
+    dom.discoverTechCount.textContent = scan.views.tech;
+    dom.discoverClassicCount.textContent = scan.views.classic;
+    dom.discoverElegantCount.textContent = scan.views.elegant;
+    dom.discoverEasyCount.textContent = scan.views.easy;
+    dom.scanToggleBtn.textContent = scan.enabled ? 'Pause' : 'Start';
+
+    dom.logicWordsDesc.textContent = `${scan.total_names.toLocaleString()} names in ${scan.sections.length} sections. Checking them all takes about ${formatDuration(scan.total_names * scan.delay)}.`;
+    dom.logicSections.innerHTML = scan.sections.map(section => `
+      <li class="${section.name === activeSection ? 'active' : ''}"><span>${section.name}</span><span class="mono-num">${section.size.toLocaleString()}</span></li>
+    `).join('');
+    dom.logicDnsDesc.textContent = `Each name is asked at ${scan.servers[0]}, the .com zone itself. NOERROR means it is in the zone, so it is registered. A free name can't be in the zone, so it can't be missed here. NXDOMAIN means it may be free. No answer means the same name is tried again.`;
+    dom.logicScoreDesc.textContent = `Pairs: rank sum, +${scan.joint_penalty} if the words join on the same letter, +${scan.length_penalty} per letter over ${scan.ideal_length}. Single words: rank divided by ${scan.single_divisor}. Lower is better.`;
+    const addedHtml = scan.added_words.map(item => `
+      <li><span>${item.word}</span><span class="word-list-name">${WORD_LIST_LABELS[item.list]}</span><button type="button" class="btn-ghost-sm word-front-btn" data-word="${item.word}">To Front</button></li>
+    `).join('');
+    if (addedHtml !== state.addedHtml) {
+      state.addedHtml = addedHtml;
+      dom.addedWords.innerHTML = addedHtml;
+    }
+
+    dom.logicPair.innerHTML = scan.current ? renderPairHtml(scan.current) : 'Waiting to start';
+    if (scan.recent.length > 0) dom.logicDns.innerHTML = renderAnswersHtml(scan.recent[0]);
+
+    dom.scanProgressText.textContent = `${scan.checked.toLocaleString()} of ${scan.total_names.toLocaleString()} checked${scan.at_front > 0 ? `, ${scan.at_front.toLocaleString()} at the front` : ''}`;
+    dom.scanProgressPercent.textContent = `${percent.toFixed(1)}%`;
+    dom.scanProgressFill.style.width = `${percent}%`;
+
+    const age = scan.last_checked ? Math.floor(Date.now() / 1000 - scan.last_checked) : null;
+    const isStale = scan.enabled && age !== null && age > STALE_SCAN_SECONDS;
+    dom.scanHealth.classList.toggle('blocked', isStale);
+    dom.scanHealth.textContent = isStale
+      ? `No answer for ${age} seconds. Retrying the same name until DNS responds.`
+      : `${!scan.enabled ? 'Paused.' : isFullyChecked ? `Rechecking oldest first, from ${formatAlarmTime(scan.oldest_check)}.` : `About ${formatDuration(remaining)} until every name is checked.`} ${scan.checked_total.toLocaleString()} checks in total, ${scan.errors} retries.`;
+
+    const showsNames = state.discoverView !== 'live';
+    const shownTotal = scan.views[state.discoverView] ?? scan.found;
+    const html = showsNames
+      ? (scan.best.map(renderDiscoveryCard).join('') || '<div class="empty-state"><div class="empty-glyph">◌</div><h3 class="empty-title">Nothing found yet</h3><p class="empty-desc">Press <strong>Start</strong> and the best free names show up here.</p></div>')
+      : (scan.recent.map(renderLiveCheck).join('') || '<div class="empty-state"><div class="empty-glyph">◌</div><h3 class="empty-title">No checks yet</h3></div>');
+    if (html !== state.discoverHtml) {
+      state.discoverHtml = html;
+      dom.discoverContainer.innerHTML = html;
+    }
+
+    dom.discoverMoreBtn.style.display = showsNames && scan.best.length < shownTotal ? 'block' : 'none';
+    dom.discoverStatus.textContent = Date.now() < state.discoverNoticeUntil
+      ? state.discoverNotice
+      : showsNames
+      ? `Top ${scan.best.length} of ${shownTotal} shown. Verified names first, then lowest score.`
+      : 'The last 30 names the scanner tried, newest first.';
+  }
+
+  async function postScan(path, body) {
+    return fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }
+
+  async function addWords() {
+    const { baseKeywords } = parseInputs(dom.addWordsInput.value);
+    if (baseKeywords.length === 0) return;
+
+    dom.addWordsStatus.textContent = 'Adding...';
+    const res = await postScan('/api/words', {
+      list: dom.addWordsList.value,
+      words: baseKeywords,
+      to_front: dom.addWordsFront.checked
+    });
+    if (res.ok) {
+      const data = await res.json();
+      dom.addWordsStatus.textContent = `${data.added} new words, ${data.names.toLocaleString()} new names, ${data.moved.toLocaleString()} sent to the front.`;
+      dom.addWordsInput.value = '';
+      state.words = null;
+      await loadScan();
+    } else {
+      dom.addWordsStatus.textContent = 'Could not add those words.';
+    }
+  }
+
+  async function moveWordToFront(button) {
+    const word = button.getAttribute('data-word');
+    button.disabled = true;
+    const res = await postScan('/api/words/front', { word });
+    const data = await res.json();
+    dom.addWordsStatus.textContent = `${data.moved.toLocaleString()} names with "${word}" sent to the front.`;
+    await loadScan();
+  }
+
+  async function verifyDiscovery(button) {
+    const domain = button.getAttribute('data-domain');
+    button.textContent = 'Checking...';
+    button.disabled = true;
+    const res = await postScan('/api/scan/verify', { domain });
+    if (res.ok) {
+      const data = await res.json();
+      state.discoverNotice = data.verdict === 'taken'
+        ? `${domain} is registered after all, so it was removed.`
+        : `${domain} is confirmed free.`;
+      state.discoverNoticeUntil = Date.now() + SCAN_NOTICE_MS;
+    } else {
+      button.textContent = 'Retry';
+      button.disabled = false;
+      return;
+    }
+    await loadScan();
+  }
+
   // --- EXPORTS (AVAILABLE DOMAINS) ---
   function getAvailableDomainsList() {
     return Array.from(state.results.values())
@@ -948,6 +1375,7 @@
 
     // Domain Hacks Button
     dom.domainHacksBtn.addEventListener('click', generateDomainHacks);
+    dom.wordMixBtn.addEventListener('click', addWordMixToInput);
 
     // Domain Hacks Modal OK, Add & Close Button & Backdrop click
     dom.modalOkBtn.addEventListener('click', hideModal);
@@ -1051,9 +1479,9 @@
     });
 
     // Filter Tabs
-    document.querySelectorAll('.filter-tab').forEach(tab => {
+    document.querySelectorAll('.filter-tab[data-filter]').forEach(tab => {
       tab.addEventListener('click', () => {
-        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.filter-tab[data-filter]').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         state.activeFilter = tab.getAttribute('data-filter');
         filterAllCards();
@@ -1063,6 +1491,83 @@
     dom.searchFilter.addEventListener('input', (e) => {
       state.searchQuery = e.target.value.trim().toLowerCase();
       filterAllCards();
+    });
+
+    // Alarms
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+      tab.addEventListener('click', () => setMode(tab.getAttribute('data-mode')));
+    });
+
+    document.querySelectorAll('.alarm-filter').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.alarm-filter').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        state.alarmFilter = tab.getAttribute('data-alarm-filter');
+        renderAlarms();
+      });
+    });
+
+    dom.alarmSearch.addEventListener('input', (e) => {
+      state.alarmQuery = e.target.value.trim().toLowerCase();
+      renderAlarms();
+    });
+
+    dom.addAlarmsBtn.addEventListener('click', addAlarms);
+
+    dom.clearAlarmsBtn.addEventListener('click', async () => {
+      if (state.alarms.length > 0 && confirm(`Remove all ${state.alarms.length} domains from the watch list?`)) {
+        await fetch('/api/alarms', { method: 'DELETE' });
+        await loadAlarms();
+      }
+    });
+
+    dom.alarmContainer.addEventListener('click', async (e) => {
+      const removeBtn = e.target.closest('.alarm-remove-btn');
+      if (removeBtn) {
+        await fetch(`/api/alarms?domain=${encodeURIComponent(removeBtn.getAttribute('data-domain'))}`, { method: 'DELETE' });
+        await loadAlarms();
+      }
+    });
+
+    // Discover
+    dom.scanToggleBtn.addEventListener('click', async () => {
+      if (!state.scan) return;
+      await postScan('/api/scan', { enabled: !state.scan.enabled });
+      await loadScan();
+    });
+
+    document.querySelectorAll('.discover-view').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.discover-view').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        state.discoverView = tab.getAttribute('data-discover-view');
+        state.discoverLimit = SCAN_PAGE_SIZE;
+        loadScan();
+      });
+    });
+
+    dom.addWordsBtn.addEventListener('click', addWords);
+    dom.addWordsInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addWords();
+    });
+    dom.addedWords.addEventListener('click', (e) => {
+      const frontBtn = e.target.closest('.word-front-btn');
+      if (frontBtn) moveWordToFront(frontBtn);
+    });
+
+    dom.discoverMoreBtn.addEventListener('click', async () => {
+      state.discoverLimit += SCAN_PAGE_SIZE;
+      await loadScan();
+    });
+
+    dom.discoverContainer.addEventListener('click', async (e) => {
+      const verifyBtn = e.target.closest('.discovery-verify-btn');
+      const hideBtn = e.target.closest('.discovery-hide-btn');
+      if (verifyBtn) await verifyDiscovery(verifyBtn);
+      if (hideBtn) {
+        await fetch(`/api/scan?domain=${encodeURIComponent(hideBtn.getAttribute('data-domain'))}`, { method: 'DELETE' });
+        await loadScan();
+      }
     });
 
     // Star & Retry Delegation
